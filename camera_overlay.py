@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QComboBox, QCheckBox, QMessageBox
+    QComboBox, QCheckBox, QMessageBox, QSizePolicy
 )
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap
@@ -17,6 +17,8 @@ class CameraOverlayApp(QWidget):
         self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Camera Overlay")
         self.resize(800, 600)
+        # Allow window to be resized as small as OS permits
+        self.setMinimumSize(1, 1)
 
         # Camera capture object
         self.cap = None
@@ -63,17 +65,17 @@ class CameraOverlayApp(QWidget):
         # Toggle checkboxes
         self.square_cb = QCheckBox("Square Frame")
         self.square_cb.stateChanged.connect(self.on_style_change)
-        self.circle_cb = QCheckBox("Circle Frame")
-        self.circle_cb.stateChanged.connect(self.on_style_change)
 
         controls.addWidget(self.camera_selector)
         controls.addWidget(self.square_cb)
-        controls.addWidget(self.circle_cb)
         layout.addLayout(controls)
 
         # Video display label
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignCenter)
+        # Allow video label to shrink below its size hint
+        self.video_label.setMinimumSize(1, 1)
+        self.video_label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         layout.addWidget(self.video_label)
 
         self.setLayout(layout)
@@ -112,16 +114,6 @@ class CameraOverlayApp(QWidget):
             x = (w - m) // 2
             y = (h - m) // 2
             frame = frame[y:y+m, x:x+m]
-
-        # Circular mask
-        if self.circle_cb.isChecked():
-            h, w = frame.shape[:2]
-            mask = np.zeros((h, w), dtype=np.uint8)
-            center = (w//2, h//2)
-            radius = min(w, h)//2
-            cv2.circle(mask, center, radius, 255, -1)
-            mask_3ch = cv2.merge([mask, mask, mask])
-            frame = cv2.bitwise_and(frame, mask_3ch)
 
         # Convert BGR to RGB and to QImage
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
