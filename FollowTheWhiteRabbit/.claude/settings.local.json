@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)",
+      "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)",
+      "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)",
+      "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

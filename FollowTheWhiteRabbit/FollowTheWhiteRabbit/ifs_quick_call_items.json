@@ -1,0 +1,20 @@
+[
+    {
+        "callName": "Procurement AI",
+        "currentTab": true,
+        "pkURL": "https://ifspsb2-d03.demo.ifs.cloud/main/ifsapplications/web/lobby/c83a929d-abc4-407f-8d9b-84bbac8b400d;*",
+        "url": "https://ifspsb2-d03.demo.ifs.cloud/main/ifsapplications/web/lobby/b2dd0cd9-c954-4e7b-a35b-0d84adf37c8e;path=0.eyJmIjoiL0xvYmJ5IiwiZyI6ImIyZGQwY2Q5LWM5NTQtNGU3Yi1hMzViLTBkODRhZGYzN2M4ZSIsImkiOiJiMmRkMGNkOS1jOTU0LTRlN2ItYTM1Yi0wZDg0YWRmMzdjOGUiLCJhIjoidmlydHVhbC0xIiwiYiI6IjAiLCJlIjoiQUkgUFJPQ1VSRU1FTlQgQ0VOVFJBTCIsImQiOnRydWUsImMiOmZhbHNlfQ%3D%3D"
+    },
+    {
+        "callName": "SRM Lobby",
+        "currentTab": true,
+        "pkURL": "https://ifspsb2-d03.demo.ifs.cloud/main/ifsapplications/web/lobby/b2dd0cd9-c954-4e7b-a35b-0d84adf37c8e;*",
+        "url": "https://ifspsb2-d03.demo.ifs.cloud/main/ifsapplications/web/lobby/7030556e-ac17-417a-892e-10b7186fa2ce;path=0.eyJmIjoiL0xvYmJ5IiwiZyI6ImIyZGQwY2Q5LWM5NTQtNGU3Yi1hMzViLTBkODRhZGYzN2M4ZSIsImkiOiJiMmRkMGNkOS1jOTU0LTRlN2ItYTM1Yi0wZDg0YWRmMzdjOGUiLCJhIjoidmlydHVhbC0xIiwiYiI6IjAiLCJlIjoiQUkgUFJPQ1VSRU1FTlQgQ0VOVFJBTCIsImQiOnRydWUsImMiOmZhbHNlfQ%3D%3D.eyJmIjoiL0xvYmJ5IiwiZyI6IjcwMzA1NTZlLWFjMTctNDE3YS04OTJlLTEwYjcxODZmYTJjZSIsImkiOiI3MDMwNTU2ZS1hYzE3LTQxN2EtODkyZS0xMGI3MTg2ZmEyY2UiLCJhIjoidmlydHVhbC0yIiwiYiI6InZpcnR1YWwtMSIsImUiOiJTVVBQTElFUiBSRUxBVElPTlNISVAgTUFOQUdFTUVOVCIsImQiOnRydWUsImMiOmZhbHNlfQ%3D%3D"
+    },
+    {
+        "callName": "Quick PO Registration",
+        "currentTab": true,
+        "pkURL": "https://ifspsb2-d03.demo.ifs.cloud/main/ifsapplications/web/lobby/b2dd0cd9-c954-4e7b-a35b-0d84adf37c8e;*",
+        "url": "https://ifspsb2-d03.demo.ifs.cloud/main/ifsapplications/web/assistant/QuickPurchaseOrderRegister/QuickPurchaseOrderRegisterAssistant;path=0.683234341.1349082485.2108262805"
+    }
+]
