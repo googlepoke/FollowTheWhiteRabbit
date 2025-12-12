@@ -104,12 +104,7 @@
     // Create a list item for each entry.
     items.forEach(item => {
       const li = document.createElement("li");
-      // Add icon for function code or custom action
-      if (item.actionType && item.actionType !== 'openUrl') {
-        li.innerHTML = '<span style="color:#0365D8;font-weight:bold;margin-right:6px;">&#9881;</span>' + item.callName;
-      } else {
-        li.textContent = item.callName;
-      }
+      li.textContent = item.callName;
       li.style.padding = "8px 12px";
       li.style.cursor = "pointer";
 

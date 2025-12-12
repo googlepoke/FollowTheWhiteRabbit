@@ -365,8 +365,8 @@ function openModal(mode, index) {
     document.getElementById('pkURL').value = '';
     urlInput.value = '';
     document.getElementById('currentTab').checked = false;
-    actionTypeInput.value = 'alert';
-    renderActionParamsFields('alert');
+    actionTypeInput.value = 'openUrl';
+    renderActionParamsFields('openUrl');
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
       if (tabs[0]) {
         const currentUrl = tabs[0].url;
