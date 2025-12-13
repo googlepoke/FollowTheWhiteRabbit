@@ -98,4 +98,12 @@
   opacity: 0.6;
 }
 
+/* Rich Text Modal Image Scaling */
+.ifs-richtext-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 16px auto;
+}
+
 

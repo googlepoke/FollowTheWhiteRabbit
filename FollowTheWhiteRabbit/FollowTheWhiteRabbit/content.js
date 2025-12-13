@@ -244,6 +244,7 @@
 
             // Content container
             var contentContainer = document.createElement('div');
+            contentContainer.className = 'ifs-richtext-content';
             contentContainer.style.fontFamily = item.actionParams && item.actionParams.fontFamily ? item.actionParams.fontFamily + ', sans-serif' : 'Inter, sans-serif';
             contentContainer.style.fontSize = (item.actionParams && item.actionParams.fontSize ? item.actionParams.fontSize : 16) + 'px';
             contentContainer.style.color = item.actionParams && item.actionParams.textColor ? item.actionParams.textColor : '#333333';
@@ -280,6 +281,19 @@
               heading.style.margin = '20px 0 12px 0';
               heading.style.fontWeight = '600';
             });
+
+            // Clamp images to fit within modal width
+            var images = contentContainer.querySelectorAll('img');
+            images.forEach(function(img) {
+              img.style.maxWidth = '100%';
+              img.style.height = 'auto';
+              img.style.display = 'block';
+              img.style.margin = '16px auto';
+            });
+
+            // Limit content height for tall content
+            contentContainer.style.maxHeight = 'calc(90vh - 160px)';
+            contentContainer.style.overflow = 'auto';
 
             modalBox.appendChild(contentContainer);
 
