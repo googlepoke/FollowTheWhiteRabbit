@@ -299,6 +299,45 @@ function renderActionParamsFields(actionType, params = {}) {
         }
       });
     }
+  } else if (actionType === 'note') {
+    const colorPresets = [
+      { value: '#FFEB3B', label: 'Yellow' },
+      { value: '#F48FB1', label: 'Pink' },
+      { value: '#81D4FA', label: 'Blue' },
+      { value: '#A5D6A7', label: 'Green' },
+      { value: '#FFCC80', label: 'Orange' },
+      { value: '#E1BEE7', label: 'Purple' }
+    ];
+    
+    let colorSelectOptions = colorPresets.map(color => 
+      `<option value="${color.value}" ${(params.defaultColor || '#FFEB3B') === color.value ? 'selected' : ''}>${color.label}</option>`
+    ).join('');
+
+    actionParamsContainer.innerHTML = `
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label>Default Color:</label>
+          <select id="param_note_color" class="form-control">${colorSelectOptions}</select>
+        </div>
+        <div class="col-md-6">
+          <label>Color Preview:</label>
+          <div id="param_note_color_preview" style="width: 100%; height: 38px; border-radius: 4px; border: 1px solid #ced4da; background-color: ${params.defaultColor || '#FFEB3B'};"></div>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label>Default Text (optional):</label>
+        <textarea id="param_note_text" class="form-control" rows="3" placeholder="Enter default text for the sticky note...">${params.defaultText || ''}</textarea>
+      </div>
+    `;
+
+    // Update color preview when selection changes
+    const colorSelect = document.getElementById('param_note_color');
+    const colorPreview = document.getElementById('param_note_color_preview');
+    if (colorSelect && colorPreview) {
+      colorSelect.addEventListener('change', function() {
+        colorPreview.style.backgroundColor = this.value;
+      });
+    }
   }
 }
 
@@ -529,6 +568,9 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     });
     actionParams.fontSize = parseInt(document.getElementById('param_todo_fontsize').value, 10) || 16;
     actionParams.fontColor = document.getElementById('param_todo_fontcolor').value;
+  } else if (actionType === 'note') {
+    actionParams.defaultColor = document.getElementById('param_note_color').value;
+    actionParams.defaultText = document.getElementById('param_note_text').value;
   }
   const editIndex = document.getElementById('editIndex').value;
   if (!pkURL || !callName || (actionType === 'openUrl' && !url)) {

@@ -84,6 +84,44 @@
     });
   }
 
+  // --- Sticky Note Persistence ---
+  const NOTE_STATES_KEY = 'ifsNoteStates';
+
+  // Generate storage key for a note item
+  function getNoteStorageKey(item) {
+    return `${item.pkURL || ''}||${item.callName || ''}`;
+  }
+
+  // Load note state for a specific item
+  function loadNoteState(storageKey, callback) {
+    chrome.storage.local.get([NOTE_STATES_KEY], (result) => {
+      const allStates = result[NOTE_STATES_KEY] || {};
+      const state = allStates[storageKey] || {};
+      callback(state);
+    });
+  }
+
+  // Save note state for a specific item
+  function saveNoteState(storageKey, stateObj) {
+    chrome.storage.local.get([NOTE_STATES_KEY], (result) => {
+      const allStates = result[NOTE_STATES_KEY] || {};
+      allStates[storageKey] = stateObj;
+      chrome.storage.local.set({ [NOTE_STATES_KEY]: allStates });
+    });
+  }
+
+  // Debounce utility for note text input
+  function debounce(fn, delay) {
+    let timeoutId;
+    return function(...args) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    };
+  }
+
+  // Track active notes to prevent duplicates and manage z-index
+  const activeNotes = new Map();
+
   // Filter items based on the active URL using wildcard support.
   // It converts the pkURL (which can include *) into a regular expression.
   function filterItemsForCurrentUrl(activeUrl, items) {
@@ -714,6 +752,192 @@
             });
 
             document.body.appendChild(todoOverlay);
+            break;
+          case 'note':
+            var noteStorageKey = getNoteStorageKey(item);
+            var defaultColor = (item.actionParams && item.actionParams.defaultColor) || '#FFEB3B';
+            var defaultText = (item.actionParams && item.actionParams.defaultText) || '';
+
+            // Color presets for the palette
+            var noteColorPresets = [
+              { value: '#FFEB3B', name: 'Yellow' },
+              { value: '#F48FB1', name: 'Pink' },
+              { value: '#81D4FA', name: 'Blue' },
+              { value: '#A5D6A7', name: 'Green' },
+              { value: '#FFCC80', name: 'Orange' },
+              { value: '#E1BEE7', name: 'Purple' }
+            ];
+
+            // Check if note is already open - bring to front if so
+            if (activeNotes.has(noteStorageKey)) {
+              var existingNote = activeNotes.get(noteStorageKey);
+              if (existingNote && existingNote.parentNode) {
+                // Bring to front by updating z-index
+                var maxZ = 999999998;
+                activeNotes.forEach(function(n) {
+                  var z = parseInt(n.style.zIndex) || 0;
+                  if (z > maxZ) maxZ = z;
+                });
+                existingNote.style.zIndex = maxZ + 1;
+                return;
+              }
+            }
+
+            // Load saved state and create note
+            loadNoteState(noteStorageKey, function(savedState) {
+              var noteColor = savedState.color || defaultColor;
+              var noteText = savedState.text !== undefined ? savedState.text : defaultText;
+              var noteX = savedState.x !== undefined ? savedState.x : 100;
+              var noteY = savedState.y !== undefined ? savedState.y : 100;
+
+              // Clamp position to viewport
+              noteX = Math.max(0, Math.min(noteX, window.innerWidth - 300));
+              noteY = Math.max(0, Math.min(noteY, window.innerHeight - 220));
+
+              // Create note container
+              var noteElement = document.createElement('div');
+              noteElement.className = 'ifs-sticky-note';
+              noteElement.style.backgroundColor = noteColor;
+              noteElement.style.left = noteX + 'px';
+              noteElement.style.top = noteY + 'px';
+
+              // Header with title and close button
+              var noteHeader = document.createElement('div');
+              noteHeader.className = 'ifs-sticky-note-header';
+
+              var noteTitle = document.createElement('span');
+              noteTitle.className = 'ifs-sticky-note-title';
+              noteTitle.textContent = item.callName || 'Note';
+
+              var noteCloseBtn = document.createElement('button');
+              noteCloseBtn.className = 'ifs-sticky-note-close';
+              noteCloseBtn.innerHTML = '&times;';
+              noteCloseBtn.title = 'Close note';
+
+              noteHeader.appendChild(noteTitle);
+              noteHeader.appendChild(noteCloseBtn);
+
+              // Color palette
+              var noteColors = document.createElement('div');
+              noteColors.className = 'ifs-sticky-note-colors';
+
+              noteColorPresets.forEach(function(preset) {
+                var colorBtn = document.createElement('button');
+                colorBtn.className = 'ifs-sticky-note-color-btn';
+                if (preset.value === noteColor) {
+                  colorBtn.classList.add('active');
+                }
+                colorBtn.style.backgroundColor = preset.value;
+                colorBtn.title = preset.name;
+
+                colorBtn.addEventListener('click', function(ev) {
+                  ev.stopPropagation();
+                  // Update active state
+                  noteColors.querySelectorAll('.ifs-sticky-note-color-btn').forEach(function(btn) {
+                    btn.classList.remove('active');
+                  });
+                  colorBtn.classList.add('active');
+                  // Change note color
+                  noteElement.style.backgroundColor = preset.value;
+                  // Persist color
+                  savedState.color = preset.value;
+                  saveNoteState(noteStorageKey, savedState);
+                });
+
+                noteColors.appendChild(colorBtn);
+              });
+
+              // Note body with textarea
+              var noteBody = document.createElement('div');
+              noteBody.className = 'ifs-sticky-note-body';
+
+              var noteTextarea = document.createElement('textarea');
+              noteTextarea.className = 'ifs-sticky-note-textarea';
+              noteTextarea.placeholder = 'Write your note here...';
+              noteTextarea.value = noteText;
+
+              // Debounced save for text input
+              var debouncedSaveText = debounce(function() {
+                savedState.text = noteTextarea.value;
+                saveNoteState(noteStorageKey, savedState);
+              }, 300);
+
+              noteTextarea.addEventListener('input', debouncedSaveText);
+
+              noteBody.appendChild(noteTextarea);
+
+              // Assemble note
+              noteElement.appendChild(noteHeader);
+              noteElement.appendChild(noteColors);
+              noteElement.appendChild(noteBody);
+
+              // Drag functionality
+              var isDragging = false;
+              var dragOffsetX = 0;
+              var dragOffsetY = 0;
+
+              noteHeader.addEventListener('mousedown', function(ev) {
+                if (ev.target === noteCloseBtn) return;
+                isDragging = true;
+                dragOffsetX = ev.clientX - noteElement.offsetLeft;
+                dragOffsetY = ev.clientY - noteElement.offsetTop;
+                noteElement.style.cursor = 'grabbing';
+                
+                // Bring to front on drag start
+                var maxZ = 999999998;
+                activeNotes.forEach(function(n) {
+                  var z = parseInt(n.style.zIndex) || 0;
+                  if (z > maxZ) maxZ = z;
+                });
+                noteElement.style.zIndex = maxZ + 1;
+
+                ev.preventDefault();
+              });
+
+              document.addEventListener('mousemove', function(ev) {
+                if (!isDragging) return;
+                var newX = ev.clientX - dragOffsetX;
+                var newY = ev.clientY - dragOffsetY;
+
+                // Clamp to viewport
+                newX = Math.max(0, Math.min(newX, window.innerWidth - noteElement.offsetWidth));
+                newY = Math.max(0, Math.min(newY, window.innerHeight - noteElement.offsetHeight));
+
+                noteElement.style.left = newX + 'px';
+                noteElement.style.top = newY + 'px';
+              });
+
+              document.addEventListener('mouseup', function() {
+                if (isDragging) {
+                  isDragging = false;
+                  noteElement.style.cursor = '';
+                  // Persist position
+                  savedState.x = parseInt(noteElement.style.left);
+                  savedState.y = parseInt(noteElement.style.top);
+                  saveNoteState(noteStorageKey, savedState);
+                }
+              });
+
+              // Close button handler
+              noteCloseBtn.addEventListener('click', function() {
+                noteElement.remove();
+                activeNotes.delete(noteStorageKey);
+              });
+
+              // Bring to front on click
+              noteElement.addEventListener('mousedown', function() {
+                var maxZ = 999999998;
+                activeNotes.forEach(function(n) {
+                  var z = parseInt(n.style.zIndex) || 0;
+                  if (z > maxZ) maxZ = z;
+                });
+                noteElement.style.zIndex = maxZ + 1;
+              });
+
+              // Add to DOM and track
+              document.body.appendChild(noteElement);
+              activeNotes.set(noteStorageKey, noteElement);
+            });
             break;
         }
       });
