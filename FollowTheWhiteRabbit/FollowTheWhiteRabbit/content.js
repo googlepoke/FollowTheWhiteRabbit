@@ -58,6 +58,32 @@
   // Initialize hover styles on load.
   initHoverStyles();
 
+  // --- To-Do List Persistence ---
+  const TODO_STATES_KEY = 'ifsTodoStates';
+
+  // Generate storage key for a todo list item
+  function getTodoStorageKey(item) {
+    return `${item.pkURL || ''}||${item.callName || ''}`;
+  }
+
+  // Load todo state for a specific item
+  function loadTodoState(storageKey, callback) {
+    chrome.storage.local.get([TODO_STATES_KEY], (result) => {
+      const allStates = result[TODO_STATES_KEY] || {};
+      const state = allStates[storageKey] || {};
+      callback(state);
+    });
+  }
+
+  // Save todo state for a specific item
+  function saveTodoState(storageKey, stateObj) {
+    chrome.storage.local.get([TODO_STATES_KEY], (result) => {
+      const allStates = result[TODO_STATES_KEY] || {};
+      allStates[storageKey] = stateObj;
+      chrome.storage.local.set({ [TODO_STATES_KEY]: allStates });
+    });
+  }
+
   // Filter items based on the active URL using wildcard support.
   // It converts the pkURL (which can include *) into a regular expression.
   function filterItemsForCurrentUrl(activeUrl, items) {
@@ -442,6 +468,163 @@
             tick();
             window.activeCountdownInterval = setInterval(tick, 1000);
             break;
+          case 'todoList':
+            var todoStorageKey = getTodoStorageKey(item);
+            var todoItems = (item.actionParams && item.actionParams.items) || [];
+            var todoFontSize = (item.actionParams && item.actionParams.fontSize) || 16;
+            var todoFontColor = (item.actionParams && item.actionParams.fontColor) || '#333333';
+
+            var todoOverlay = document.createElement('div');
+            todoOverlay.className = 'ifs-todo-overlay';
+            todoOverlay.style.position = 'fixed';
+            todoOverlay.style.top = '0';
+            todoOverlay.style.left = '0';
+            todoOverlay.style.width = '100vw';
+            todoOverlay.style.height = '100vh';
+            todoOverlay.style.background = 'rgba(0,0,0,0.5)';
+            todoOverlay.style.zIndex = 999999999;
+            todoOverlay.style.display = 'flex';
+            todoOverlay.style.alignItems = 'center';
+            todoOverlay.style.justifyContent = 'center';
+
+            var todoBox = document.createElement('div');
+            todoBox.className = 'ifs-todo-modal';
+            todoBox.style.background = '#fff';
+            todoBox.style.padding = '32px';
+            todoBox.style.borderRadius = '12px';
+            todoBox.style.maxWidth = '90vw';
+            todoBox.style.maxHeight = '90vh';
+            todoBox.style.overflow = 'auto';
+            todoBox.style.position = 'relative';
+            todoBox.style.zIndex = 999999999;
+            todoBox.style.boxShadow = '0 20px 60px rgba(0,0,0,0.3)';
+            todoBox.style.minWidth = '300px';
+
+            // Title
+            var todoTitle = document.createElement('h2');
+            todoTitle.textContent = item.callName || 'To Do List';
+            todoTitle.style.margin = '0 0 24px 0';
+            todoTitle.style.fontSize = Math.min(24, todoFontSize + 8) + 'px';
+            todoTitle.style.fontWeight = '600';
+            todoTitle.style.color = todoFontColor;
+            todoTitle.style.paddingRight = '40px';
+            todoBox.appendChild(todoTitle);
+
+            // List container
+            var todoList = document.createElement('ul');
+            todoList.className = 'ifs-todo-list';
+            todoList.style.listStyle = 'none';
+            todoList.style.margin = '0';
+            todoList.style.padding = '0';
+
+            // Load persisted states and build list
+            loadTodoState(todoStorageKey, function(savedStates) {
+              todoItems.forEach(function(todoText, idx) {
+                var li = document.createElement('li');
+                li.className = 'ifs-todo-item';
+                li.style.display = 'flex';
+                li.style.alignItems = 'flex-start';
+                li.style.gap = '12px';
+                li.style.padding = '8px 0';
+                li.style.cursor = 'pointer';
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'ifs-todo-checkbox';
+                checkbox.style.width = '20px';
+                checkbox.style.height = '20px';
+                checkbox.style.marginTop = '2px';
+                checkbox.style.cursor = 'pointer';
+                checkbox.style.accentColor = '#0365D8';
+                checkbox.checked = savedStates[idx] === true;
+
+                var textSpan = document.createElement('span');
+                textSpan.className = 'ifs-todo-text';
+                textSpan.textContent = todoText;
+                textSpan.style.fontSize = todoFontSize + 'px';
+                textSpan.style.color = todoFontColor;
+                textSpan.style.flex = '1';
+                textSpan.style.lineHeight = '1.5';
+
+                // Apply strikethrough if checked
+                if (checkbox.checked) {
+                  li.classList.add('ifs-todo-checked');
+                  textSpan.style.textDecoration = 'line-through';
+                  textSpan.style.opacity = '0.6';
+                }
+
+                // Toggle handler
+                checkbox.addEventListener('change', function() {
+                  savedStates[idx] = checkbox.checked;
+                  if (checkbox.checked) {
+                    li.classList.add('ifs-todo-checked');
+                    textSpan.style.textDecoration = 'line-through';
+                    textSpan.style.opacity = '0.6';
+                  } else {
+                    li.classList.remove('ifs-todo-checked');
+                    textSpan.style.textDecoration = 'none';
+                    textSpan.style.opacity = '1';
+                  }
+                  saveTodoState(todoStorageKey, savedStates);
+                });
+
+                // Click on row toggles checkbox
+                li.addEventListener('click', function(ev) {
+                  if (ev.target !== checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change'));
+                  }
+                });
+
+                li.appendChild(checkbox);
+                li.appendChild(textSpan);
+                todoList.appendChild(li);
+              });
+            });
+
+            todoBox.appendChild(todoList);
+
+            // Close button
+            var todoCloseBtn = document.createElement('button');
+            todoCloseBtn.innerHTML = '&times;';
+            todoCloseBtn.style.position = 'absolute';
+            todoCloseBtn.style.top = '20px';
+            todoCloseBtn.style.right = '24px';
+            todoCloseBtn.style.fontSize = '28px';
+            todoCloseBtn.style.background = 'none';
+            todoCloseBtn.style.border = 'none';
+            todoCloseBtn.style.cursor = 'pointer';
+            todoCloseBtn.style.color = '#666';
+            todoCloseBtn.style.zIndex = 999999999;
+            todoCloseBtn.style.width = '32px';
+            todoCloseBtn.style.height = '32px';
+            todoCloseBtn.style.borderRadius = '50%';
+            todoCloseBtn.style.display = 'flex';
+            todoCloseBtn.style.alignItems = 'center';
+            todoCloseBtn.style.justifyContent = 'center';
+            todoCloseBtn.style.transition = 'all 0.2s ease';
+
+            todoCloseBtn.onmouseover = function() {
+              todoCloseBtn.style.backgroundColor = 'rgba(0,0,0,0.1)';
+            };
+            todoCloseBtn.onmouseout = function() {
+              todoCloseBtn.style.backgroundColor = 'transparent';
+            };
+
+            todoCloseBtn.onclick = function() {
+              document.body.removeChild(todoOverlay);
+            };
+
+            todoBox.appendChild(todoCloseBtn);
+            todoOverlay.appendChild(todoBox);
+
+            // Close on overlay click
+            todoOverlay.addEventListener('click', function(ev) {
+              if (ev.target === todoOverlay) document.body.removeChild(todoOverlay);
+            });
+
+            document.body.appendChild(todoOverlay);
+            break;
         }
       });
 
@@ -451,6 +634,20 @@
       });
       li.addEventListener("mouseleave", () => {
         li.style.backgroundColor = "";
+      });
+
+      // Middle-click to open URL in new tab (only for openUrl action type)
+      li.addEventListener("auxclick", function(e) {
+        if (e.button === 1 && item.actionType === 'openUrl' && item.url) {
+          e.preventDefault();
+          e.stopPropagation();
+          customMenu.style.display = "none";
+          chrome.runtime.sendMessage({
+            action: "navigate",
+            url: item.url,
+            currentTab: false  // Always open in new tab
+          });
+        }
       });
 
       ul.appendChild(li);

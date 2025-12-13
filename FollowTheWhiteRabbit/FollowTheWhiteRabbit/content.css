@@ -41,4 +41,61 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+/* To-Do List Modal Styles */
+.ifs-todo-overlay {
+  font-family: 'Open Sans', Arial, sans-serif;
+}
+
+.ifs-todo-modal {
+  font-family: inherit;
+}
+
+.ifs-todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ifs-todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s ease;
+}
+
+.ifs-todo-item:last-child {
+  border-bottom: none;
+}
+
+.ifs-todo-item:hover {
+  background-color: #f8f9fa;
+}
+
+.ifs-todo-checkbox {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #0365D8;
+}
+
+.ifs-todo-checkbox:focus-visible {
+  outline: 2px solid rgba(3, 101, 216, 0.85);
+  outline-offset: 2px;
+}
+
+.ifs-todo-text {
+  flex: 1;
+  line-height: 1.5;
+  transition: opacity 0.2s ease, text-decoration 0.2s ease;
+}
+
+.ifs-todo-checked .ifs-todo-text {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
 

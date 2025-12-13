@@ -252,6 +252,43 @@ function renderActionParamsFields(actionType, params = {}) {
     actionParamsContainer.innerHTML = '<label>Function Name:</label><input type="text" id="param_function_name" class="form-control" value="' + (params.functionName || '') + '" placeholder="e.g., goBack"><label>Function Type:</label><select id="param_function_type" class="form-control"><option value="complete" ' + (params.functionType === 'complete' ? 'selected' : '') + '>Complete Definition</option><option value="body" ' + (params.functionType === 'body' ? 'selected' : '') + '>Function Body Only</option></select><label>Function Code:</label><textarea id="param_function_code" class="form-control" rows="6" placeholder="Enter your JavaScript code here...">' + (params.functionCode || '') + '</textarea>';
   } else if (actionType === 'countdownClock') {
     actionParamsContainer.innerHTML = '<label>Countdown Duration (minutes):</label><input type="number" id="param_countdown_minutes" class="form-control" min="1" value="' + (params.minutes || 1) + '"><label>Label/Message (optional):</label><input type="text" id="param_countdown_label" class="form-control" value="' + (params.label || '') + '">';
+  } else if (actionType === 'todoList') {
+    // Escape items for textarea (join with newlines)
+    const itemsText = (params.items && Array.isArray(params.items)) ? params.items.join('\n') : '';
+    actionParamsContainer.innerHTML = `
+      <div class="mb-3">
+        <label>To Do Items (one per line):</label>
+        <textarea id="param_todo_items" class="form-control" rows="6" placeholder="Enter one item per line...">${itemsText}</textarea>
+      </div>
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label>Font Size (px):</label>
+          <input type="number" id="param_todo_fontsize" class="form-control" min="8" max="72" value="${params.fontSize || 16}">
+        </div>
+        <div class="col-md-6">
+          <label>Font Color:</label>
+          <div class="input-group">
+            <input type="color" id="param_todo_fontcolor" class="form-control form-control-color" value="${params.fontColor || '#333333'}">
+            <input type="text" id="param_todo_fontcolor_hex" class="form-control" value="${params.fontColor || '#333333'}" maxlength="7">
+          </div>
+        </div>
+      </div>
+    `;
+    // Sync color picker with hex input
+    const colorPicker = document.getElementById('param_todo_fontcolor');
+    const hexInput = document.getElementById('param_todo_fontcolor_hex');
+    if (colorPicker && hexInput) {
+      colorPicker.addEventListener('input', function() {
+        hexInput.value = this.value.toUpperCase();
+      });
+      hexInput.addEventListener('input', function() {
+        let val = this.value.toUpperCase();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          colorPicker.value = val;
+        }
+      });
+    }
   }
 }
 
@@ -464,6 +501,12 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
   } else if (actionType === 'countdownClock') {
     actionParams.minutes = parseInt(document.getElementById('param_countdown_minutes').value, 10) || 1;
     actionParams.label = document.getElementById('param_countdown_label').value;
+  } else if (actionType === 'todoList') {
+    const itemsRaw = document.getElementById('param_todo_items').value;
+    // Split by newlines, trim each, filter out empty lines
+    actionParams.items = itemsRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    actionParams.fontSize = parseInt(document.getElementById('param_todo_fontsize').value, 10) || 16;
+    actionParams.fontColor = document.getElementById('param_todo_fontcolor').value;
   }
   const editIndex = document.getElementById('editIndex').value;
   if (!pkURL || !callName || (actionType === 'openUrl' && !url)) {
@@ -498,6 +541,12 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     }
     // Note: Full syntax validation is skipped due to CSP restrictions
     // Syntax errors will be caught during execution
+  }
+  if (actionType === 'todoList') {
+    if (!actionParams.items || actionParams.items.length === 0) {
+      alert('Please enter at least one To Do item.');
+      return;
+    }
   }
   const newItem = { pkURL, callName, url, currentTab, actionType, actionParams };
   loadItems((items) => {
