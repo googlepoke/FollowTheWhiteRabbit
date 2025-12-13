@@ -253,12 +253,22 @@ function renderActionParamsFields(actionType, params = {}) {
   } else if (actionType === 'countdownClock') {
     actionParamsContainer.innerHTML = '<label>Countdown Duration (minutes):</label><input type="number" id="param_countdown_minutes" class="form-control" min="1" value="' + (params.minutes || 1) + '"><label>Label/Message (optional):</label><input type="text" id="param_countdown_label" class="form-control" value="' + (params.label || '') + '">';
   } else if (actionType === 'todoList') {
-    // Escape items for textarea (join with newlines)
-    const itemsText = (params.items && Array.isArray(params.items)) ? params.items.join('\n') : '';
+    // Normalize items to {label, url?} format, then convert to Label|URL text for editing
+    let itemsText = '';
+    if (params.items && Array.isArray(params.items)) {
+      itemsText = params.items.map(entry => {
+        if (typeof entry === 'string') {
+          return entry; // legacy string format
+        }
+        // Object format: {label, url?}
+        return entry.url ? `${entry.label}|${entry.url}` : entry.label;
+      }).join('\n');
+    }
     actionParamsContainer.innerHTML = `
       <div class="mb-3">
         <label>To Do Items (one per line):</label>
-        <textarea id="param_todo_items" class="form-control" rows="6" placeholder="Enter one item per line...">${itemsText}</textarea>
+        <textarea id="param_todo_items" class="form-control" rows="6" placeholder="Enter one item per line...&#10;Use Label|URL format for hyperlinked items">${itemsText}</textarea>
+        <small class="text-muted">Format: <code>Label</code> or <code>Label|https://example.com</code> for clickable links</small>
       </div>
       <div class="row mb-3">
         <div class="col-md-6">
@@ -503,8 +513,20 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     actionParams.label = document.getElementById('param_countdown_label').value;
   } else if (actionType === 'todoList') {
     const itemsRaw = document.getElementById('param_todo_items').value;
-    // Split by newlines, trim each, filter out empty lines
-    actionParams.items = itemsRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    // Split by newlines, trim each, filter out empty lines, parse Label|URL format
+    const lines = itemsRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    actionParams.items = lines.map(line => {
+      const pipeIndex = line.indexOf('|');
+      if (pipeIndex > 0 && pipeIndex < line.length - 1) {
+        const label = line.substring(0, pipeIndex).trim();
+        const url = line.substring(pipeIndex + 1).trim();
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+          return { label, url };
+        }
+      }
+      // No valid URL, treat as plain label
+      return { label: line };
+    });
     actionParams.fontSize = parseInt(document.getElementById('param_todo_fontsize').value, 10) || 16;
     actionParams.fontColor = document.getElementById('param_todo_fontcolor').value;
   }
@@ -546,6 +568,13 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     if (!actionParams.items || actionParams.items.length === 0) {
       alert('Please enter at least one To Do item.');
       return;
+    }
+    // Validate URLs if provided
+    for (const item of actionParams.items) {
+      if (item.url && !item.url.match(/^https?:\/\/.+/)) {
+        alert(`Invalid URL for "${item.label}". URLs must start with http:// or https://`);
+        return;
+      }
     }
   }
   const newItem = { pkURL, callName, url, currentTab, actionType, actionParams };

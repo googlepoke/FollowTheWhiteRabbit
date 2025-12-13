@@ -178,24 +178,45 @@
             modalOverlay.style.justifyContent = 'center';
             var modalBox = document.createElement('div');
             modalBox.style.background = '#fff';
-            modalBox.style.padding = '24px';
+            modalBox.style.padding = '16px';
             modalBox.style.borderRadius = '8px';
-            modalBox.style.maxWidth = '80vw';
-            modalBox.style.maxHeight = '80vh';
-            modalBox.style.overflow = 'auto';
+            modalBox.style.width = 'calc(95vw - 32px)';
+            modalBox.style.maxHeight = '95vh';
+            modalBox.style.overflow = 'hidden';
             modalBox.style.position = 'relative';
             modalBox.style.zIndex = 999999999;
+            modalBox.style.boxSizing = 'border-box';
             modalBox.innerHTML = item.actionParams && item.actionParams.html ? item.actionParams.html : '';
+            
+            // Auto-resize any iframes to fit modal responsively
+            var iframes = modalBox.querySelectorAll('iframe');
+            iframes.forEach(function(iframe) {
+              iframe.style.width = '100%';
+              iframe.style.maxWidth = 'calc(95vw - 40px)';
+              iframe.style.height = 'calc(90vh - 60px)';
+              iframe.style.border = 'none';
+              iframe.style.display = 'block';
+            });
+            
             var closeBtn = document.createElement('button');
             closeBtn.textContent = '×';
             closeBtn.style.position = 'absolute';
-            closeBtn.style.top = '16px';
-            closeBtn.style.right = '24px';
-            closeBtn.style.fontSize = '24px';
-            closeBtn.style.background = 'none';
+            closeBtn.style.top = '12px';
+            closeBtn.style.right = '16px';
+            closeBtn.style.fontSize = '28px';
+            closeBtn.style.background = 'rgba(255,255,255,0.9)';
             closeBtn.style.border = 'none';
             closeBtn.style.cursor = 'pointer';
             closeBtn.style.zIndex = 999999999;
+            closeBtn.style.width = '32px';
+            closeBtn.style.height = '32px';
+            closeBtn.style.borderRadius = '50%';
+            closeBtn.style.display = 'flex';
+            closeBtn.style.alignItems = 'center';
+            closeBtn.style.justifyContent = 'center';
+            closeBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            closeBtn.onmouseover = function() { closeBtn.style.background = '#fff'; };
+            closeBtn.onmouseout = function() { closeBtn.style.background = 'rgba(255,255,255,0.9)'; };
             closeBtn.onclick = function() { document.body.removeChild(modalOverlay); };
             modalBox.appendChild(closeBtn);
             modalOverlay.appendChild(modalBox);
@@ -484,7 +505,14 @@
             break;
           case 'todoList':
             var todoStorageKey = getTodoStorageKey(item);
-            var todoItems = (item.actionParams && item.actionParams.items) || [];
+            // Normalize items to {label, url?} format for backward compatibility
+            var rawTodoItems = (item.actionParams && item.actionParams.items) || [];
+            var todoItems = rawTodoItems.map(function(entry) {
+              if (typeof entry === 'string') {
+                return { label: entry };
+              }
+              return { label: entry.label, url: entry.url };
+            });
             var todoFontSize = (item.actionParams && item.actionParams.fontSize) || 16;
             var todoFontColor = (item.actionParams && item.actionParams.fontColor) || '#333333';
 
@@ -533,7 +561,7 @@
 
             // Load persisted states and build list
             loadTodoState(todoStorageKey, function(savedStates) {
-              todoItems.forEach(function(todoText, idx) {
+              todoItems.forEach(function(todoEntry, idx) {
                 var li = document.createElement('li');
                 li.className = 'ifs-todo-item';
                 li.style.display = 'flex';
@@ -552,19 +580,67 @@
                 checkbox.style.accentColor = '#0365D8';
                 checkbox.checked = savedStates[idx] === true;
 
-                var textSpan = document.createElement('span');
-                textSpan.className = 'ifs-todo-text';
-                textSpan.textContent = todoText;
-                textSpan.style.fontSize = todoFontSize + 'px';
-                textSpan.style.color = todoFontColor;
-                textSpan.style.flex = '1';
-                textSpan.style.lineHeight = '1.5';
+                // Create text element - anchor if URL exists, span otherwise
+                var textElement;
+                if (todoEntry.url) {
+                  textElement = document.createElement('a');
+                  textElement.href = todoEntry.url;
+                  textElement.className = 'ifs-todo-text ifs-todo-link';
+                  textElement.textContent = todoEntry.label;
+                  textElement.style.fontSize = todoFontSize + 'px';
+                  textElement.style.color = todoFontColor; // Use default font color, not blue
+                  textElement.style.flex = '1';
+                  textElement.style.lineHeight = '1.5';
+                  textElement.style.textDecoration = 'none';
+                  textElement.style.cursor = 'pointer';
+                  // Hover underline only - no color change
+                  textElement.addEventListener('mouseenter', function() {
+                    if (!checkbox.checked) {
+                      textElement.style.textDecoration = 'underline';
+                    }
+                  });
+                  textElement.addEventListener('mouseleave', function() {
+                    if (!checkbox.checked) {
+                      textElement.style.textDecoration = 'none';
+                    }
+                  });
+                  // Click navigates, close modal
+                  textElement.addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    // Navigate in current tab
+                    window.location.href = todoEntry.url;
+                    // Close the todo overlay
+                    if (todoOverlay.parentNode) {
+                      document.body.removeChild(todoOverlay);
+                    }
+                  });
+                  // Keyboard accessibility
+                  textElement.addEventListener('keydown', function(ev) {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault();
+                      ev.stopPropagation();
+                      window.location.href = todoEntry.url;
+                      if (todoOverlay.parentNode) {
+                        document.body.removeChild(todoOverlay);
+                      }
+                    }
+                  });
+                } else {
+                  textElement = document.createElement('span');
+                  textElement.className = 'ifs-todo-text';
+                  textElement.textContent = todoEntry.label;
+                  textElement.style.fontSize = todoFontSize + 'px';
+                  textElement.style.color = todoFontColor;
+                  textElement.style.flex = '1';
+                  textElement.style.lineHeight = '1.5';
+                }
 
                 // Apply strikethrough if checked
                 if (checkbox.checked) {
                   li.classList.add('ifs-todo-checked');
-                  textSpan.style.textDecoration = 'line-through';
-                  textSpan.style.opacity = '0.6';
+                  textElement.style.textDecoration = 'line-through';
+                  textElement.style.opacity = '0.6';
                 }
 
                 // Toggle handler
@@ -572,26 +648,26 @@
                   savedStates[idx] = checkbox.checked;
                   if (checkbox.checked) {
                     li.classList.add('ifs-todo-checked');
-                    textSpan.style.textDecoration = 'line-through';
-                    textSpan.style.opacity = '0.6';
+                    textElement.style.textDecoration = 'line-through';
+                    textElement.style.opacity = '0.6';
                   } else {
                     li.classList.remove('ifs-todo-checked');
-                    textSpan.style.textDecoration = 'none';
-                    textSpan.style.opacity = '1';
+                    textElement.style.textDecoration = 'none';
+                    textElement.style.opacity = '1';
                   }
                   saveTodoState(todoStorageKey, savedStates);
                 });
 
-                // Click on row toggles checkbox
+                // Click on row toggles checkbox (but not on links)
                 li.addEventListener('click', function(ev) {
-                  if (ev.target !== checkbox) {
+                  if (ev.target !== checkbox && !ev.target.classList.contains('ifs-todo-link')) {
                     checkbox.checked = !checkbox.checked;
                     checkbox.dispatchEvent(new Event('change'));
                   }
                 });
 
                 li.appendChild(checkbox);
-                li.appendChild(textSpan);
+                li.appendChild(textElement);
                 todoList.appendChild(li);
               });
             });
