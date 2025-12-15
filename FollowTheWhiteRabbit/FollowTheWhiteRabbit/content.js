@@ -29,8 +29,13 @@
     const style = document.createElement('style');
     style.id = 'ifs-hover-styles';
     style.textContent = `
-      .custom-context-menu li:hover {
+      .custom-context-menu li:hover,
+      .ifs-todo-item:hover {
         background-color: ${bgColor} !important;
+        color: ${textColor} !important;
+      }
+      .ifs-todo-item:hover .ifs-todo-text,
+      .ifs-todo-item:hover .ifs-todo-link {
         color: ${textColor} !important;
       }
     `;
