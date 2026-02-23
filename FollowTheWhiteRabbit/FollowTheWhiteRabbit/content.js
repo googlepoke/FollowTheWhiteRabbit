@@ -131,6 +131,8 @@
   // It converts the pkURL (which can include *) into a regular expression.
   function filterItemsForCurrentUrl(activeUrl, items) {
     return items.filter(item => {
+      // Skip hidden items
+      if (item.hidden) return false;
       // Trim any extra whitespace
       const pkURL = item.pkURL.trim();
       // Escape regex special characters except for *, then replace * with .*

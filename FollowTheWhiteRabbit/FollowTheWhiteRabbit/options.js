@@ -94,6 +94,17 @@ async function renderItems() {
       editBtn.className = 'btn btn-sm btn-outline-primary me-2';
       editBtn.onclick = () => openModal('edit', items.indexOf(item));
       tdActions.appendChild(editBtn);
+      const duplicateBtn = document.createElement('button');
+      duplicateBtn.textContent = 'Duplicate';
+      duplicateBtn.className = 'btn btn-sm btn-outline-secondary me-2';
+      duplicateBtn.onclick = () => duplicateItem(items.indexOf(item));
+      tdActions.appendChild(duplicateBtn);
+      const toggleBtn = document.createElement('button');
+      toggleBtn.innerHTML = item.hidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+      toggleBtn.className = 'btn btn-sm btn-outline-secondary me-2';
+      toggleBtn.title = item.hidden ? 'Show in menu' : 'Hide from menu';
+      toggleBtn.onclick = () => toggleItemVisibility(items.indexOf(item));
+      tdActions.appendChild(toggleBtn);
       const deleteBtn = document.createElement('button');
       deleteBtn.textContent = 'Delete';
       deleteBtn.className = 'btn btn-sm btn-outline-danger';
@@ -160,6 +171,41 @@ async function renderItems() {
 function deleteItem(index) {
   loadItems((items) => {
     items.splice(index, 1);
+    saveItems(items, renderItems);
+  });
+}
+
+// Generate a unique call name by appending (1), (2), etc.
+function generateUniqueCallName(baseName, items) {
+  const baseMatch = baseName.match(/^(.+?)\s*\((\d+)\)$/);
+  const coreName = baseMatch ? baseMatch[1].trim() : baseName;
+  
+  const existingNames = new Set(items.map(i => i.callName));
+  let counter = 1;
+  let newName = `${coreName} (${counter})`;
+  
+  while (existingNames.has(newName)) {
+    counter++;
+    newName = `${coreName} (${counter})`;
+  }
+  return newName;
+}
+
+// Duplicate an item at the given index.
+function duplicateItem(index) {
+  loadItems((items) => {
+    const original = items[index];
+    const clone = JSON.parse(JSON.stringify(original));
+    clone.callName = generateUniqueCallName(original.callName, items);
+    items.splice(index + 1, 0, clone);
+    saveItems(items, renderItems);
+  });
+}
+
+// Toggle item visibility in the RMB menu.
+function toggleItemVisibility(index) {
+  loadItems((items) => {
+    items[index].hidden = !items[index].hidden;
     saveItems(items, renderItems);
   });
 }
