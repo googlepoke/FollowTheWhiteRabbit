@@ -505,14 +505,14 @@ function renderActionParamsFields(actionType, params = {}) {
           return entry; // legacy string format
         }
         // Object format: {label, url?}
-        return entry.url ? `${entry.label}|${entry.url}` : entry.label;
+        return entry.url ? `[${entry.label}](${entry.url})` : entry.label;
       }).join('\n');
     }
     actionParamsContainer.innerHTML = `
       <div class="mb-3">
         <label>To Do Items (one per line):</label>
-        <textarea id="param_todo_items" class="form-control" rows="6" placeholder="Enter one item per line...&#10;Use Label|URL format for hyperlinked items">${itemsText}</textarea>
-        <small class="text-muted">Format: <code>Label</code> or <code>Label|https://example.com</code> for clickable links</small>
+        <textarea id="param_todo_items" class="form-control" rows="6" placeholder="Enter one item per line...&#10;Use [Label](URL) or Label|URL for clickable links">${itemsText}</textarea>
+        <small class="text-muted">Format: <code>Label</code> or <code>[Label](https://example.com)</code> or <code>Label|https://example.com</code></small>
       </div>
       <div class="row mb-3">
         <div class="col-md-6">
@@ -801,6 +801,10 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     // Split by newlines, trim each, filter out empty lines, parse Label|URL format
     const lines = itemsRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
     actionParams.items = lines.map(line => {
+      const mdMatch = line.match(/^\[(.+?)\]\((https?:\/\/.+)\)$/);
+      if (mdMatch) {
+        return { label: mdMatch[1].trim(), url: mdMatch[2].trim() };
+      }
       const pipeIndex = line.indexOf('|');
       if (pipeIndex > 0 && pipeIndex < line.length - 1) {
         const label = line.substring(0, pipeIndex).trim();
@@ -809,7 +813,6 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
           return { label, url };
         }
       }
-      // No valid URL, treat as plain label
       return { label: line };
     });
     actionParams.fontSize = parseInt(document.getElementById('param_todo_fontsize').value, 10) || 16;
