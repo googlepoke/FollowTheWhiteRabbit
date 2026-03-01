@@ -258,3 +258,9 @@
   pointer-events: none;
 }
 
+/* To Do List Divider */
+.ifs-todo-divider:hover {
+  background-color: transparent !important;
+  cursor: default !important;
+}
+

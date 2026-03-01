@@ -801,6 +801,9 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     // Split by newlines, trim each, filter out empty lines, parse Label|URL format
     const lines = itemsRaw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
     actionParams.items = lines.map(line => {
+      if (line === '---') {
+        return { label: '---' };
+      }
       const mdMatch = line.match(/^\[(.+?)\]\((https?:\/\/.+)\)$/);
       if (mdMatch) {
         return { label: mdMatch[1].trim(), url: mdMatch[2].trim() };

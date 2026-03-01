@@ -611,6 +611,22 @@
             // Load persisted states and build list
             loadTodoState(todoStorageKey, function(savedStates) {
               todoItems.forEach(function(todoEntry, idx) {
+                if (todoEntry.label === '---') {
+                  var li = document.createElement('li');
+                  li.className = 'ifs-todo-divider';
+                  li.style.listStyle = 'none';
+                  li.style.padding = '8px 0';
+                  li.style.cursor = 'default';
+                  var hr = document.createElement('hr');
+                  hr.style.border = 'none';
+                  hr.style.height = '4px';
+                  hr.style.margin = '0';
+                  hr.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.15) 40%, rgba(255,255,255,0.5) 60%, rgba(255,255,255,0.85))';
+                  hr.style.borderRadius = '2px';
+                  li.appendChild(hr);
+                  todoList.appendChild(li);
+                  return;
+                }
                 var li = document.createElement('li');
                 li.className = 'ifs-todo-item';
                 li.style.display = 'flex';
