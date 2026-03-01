@@ -1,11 +1,15 @@
 (function() {
   // --- Utility Functions ---
 
-  // Asynchronously load items from chrome.storage.local.
+  // Asynchronously load items from chrome.storage.local, filtered by active profile.
   function loadItems(callback) {
-    chrome.storage.local.get(['ifsQuickCallItems'], (result) => {
+    chrome.storage.local.get(['ifsQuickCallItems', 'ifsActiveProfile'], (result) => {
       const items = result.ifsQuickCallItems || [];
-      callback(items);
+      const activeProfile = result.ifsActiveProfile || '';
+      const profileItems = activeProfile
+        ? items.filter(item => item.profiles && item.profiles.includes(activeProfile))
+        : items;
+      callback(profileItems);
     });
   }
 

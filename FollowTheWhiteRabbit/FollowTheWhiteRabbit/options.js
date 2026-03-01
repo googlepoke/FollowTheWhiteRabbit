@@ -8,6 +8,10 @@ const HOVER_SETTINGS_KEY = 'ifsHoverSettings';
 const DEFAULT_HOVER_BG = '#0365D8';
 const DEFAULT_HOVER_TEXT = '#FFFFFF';
 
+// Profile storage keys
+const PROFILES_KEY = 'ifsProfiles';
+const ACTIVE_PROFILE_KEY = 'ifsActiveProfile';
+
 // Load hover settings from chrome.storage.local.
 function loadHoverSettings(callback) {
   chrome.storage.local.get([HOVER_SETTINGS_KEY], (result) => {
@@ -41,6 +45,53 @@ function saveItems(items, callback) {
   chrome.storage.local.set(data, callback);
 }
 
+function generateProfileId() {
+  return 'prof_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+}
+
+function loadProfiles(callback) {
+  chrome.storage.local.get([PROFILES_KEY], (result) => {
+    callback(result[PROFILES_KEY] || []);
+  });
+}
+
+function saveProfiles(profiles, callback) {
+  let data = {};
+  data[PROFILES_KEY] = profiles;
+  chrome.storage.local.set(data, callback);
+}
+
+function loadActiveProfile(callback) {
+  chrome.storage.local.get([ACTIVE_PROFILE_KEY], (result) => {
+    callback(result[ACTIVE_PROFILE_KEY] || '');
+  });
+}
+
+function saveActiveProfile(profileId, callback) {
+  let data = {};
+  data[ACTIVE_PROFILE_KEY] = profileId;
+  chrome.storage.local.set(data, callback);
+}
+
+function migrateToProfiles(callback) {
+  chrome.storage.local.get([PROFILES_KEY, STORAGE_KEY], (result) => {
+    const profiles = result[PROFILES_KEY];
+    if (profiles && profiles.length > 0) { callback(); return; }
+    const generalId = generateProfileId();
+    const items = result[STORAGE_KEY] || [];
+    items.forEach(item => {
+      if (!item.profiles || !Array.isArray(item.profiles)) {
+        item.profiles = [generalId];
+      }
+    });
+    const data = {};
+    data[PROFILES_KEY] = [{ id: generalId, name: 'General' }];
+    data[ACTIVE_PROFILE_KEY] = generalId;
+    data[STORAGE_KEY] = items;
+    chrome.storage.local.set(data, callback);
+  });
+}
+
 // Utility: Filter items based on the active URL using wildcard support (copied from content.js)
 function filterItemsForCurrentUrl(activeUrl, items) {
   return items.filter(item => {
@@ -69,26 +120,45 @@ function getActiveTabUrl() {
 // Render list items in the table, with filtering
 async function renderItems() {
   const showAll = document.getElementById('showAllLinks').checked;
+  const activeProfileId = getActiveProfileId();
   loadItems(async (items) => {
-    let filteredItems = items;
-    if (!showAll) {
-      const activeUrl = await getActiveTabUrl();
-      filteredItems = filterItemsForCurrentUrl(activeUrl, items);
-    }
-    const tbody = document.getElementById('itemsBody');
-    tbody.innerHTML = '';
-    filteredItems.forEach((item, index) => {
-      const tr = document.createElement('tr');
-      // Drag handle
-      const tdHandle = document.createElement('td');
-      tdHandle.innerHTML = '<span class="drag-handle" style="cursor:move;">&#9776;</span>';
-      tr.appendChild(tdHandle);
-      // Only Call Name
-      const tdCallName = document.createElement('td');
-      tdCallName.textContent = item.callName;
-      tr.appendChild(tdCallName);
-      // Actions
-      const tdActions = document.createElement('td');
+    loadProfiles(async (profiles) => {
+      let filteredItems = activeProfileId
+        ? items.filter(item => item.profiles && item.profiles.includes(activeProfileId))
+        : items;
+      if (!showAll) {
+        const activeUrl = await getActiveTabUrl();
+        filteredItems = filterItemsForCurrentUrl(activeUrl, filteredItems);
+      }
+      const tbody = document.getElementById('itemsBody');
+      tbody.innerHTML = '';
+      filteredItems.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        // Drag handle
+        const tdHandle = document.createElement('td');
+        tdHandle.innerHTML = '<span class="drag-handle" style="cursor:move;">&#9776;</span>';
+        tr.appendChild(tdHandle);
+        // Call Name
+        const tdCallName = document.createElement('td');
+        tdCallName.textContent = item.callName;
+        tr.appendChild(tdCallName);
+        // Profile badges
+        const tdProfiles = document.createElement('td');
+        if (item.profiles && profiles.length > 0) {
+          item.profiles.forEach(pId => {
+            const prof = profiles.find(p => p.id === pId);
+            if (prof) {
+              const badge = document.createElement('span');
+              badge.className = 'badge bg-secondary me-1';
+              badge.style.fontSize = '0.7em';
+              badge.textContent = prof.name;
+              tdProfiles.appendChild(badge);
+            }
+          });
+        }
+        tr.appendChild(tdProfiles);
+        // Actions
+        const tdActions = document.createElement('td');
       const editBtn = document.createElement('button');
       editBtn.textContent = 'Edit';
       editBtn.className = 'btn btn-sm btn-outline-primary me-2';
@@ -114,56 +184,53 @@ async function renderItems() {
         }
       };
       tdActions.appendChild(deleteBtn);
-      tr.appendChild(tdActions);
-      tbody.appendChild(tr);
-    });
-    // Initialize SortableJS for drag-and-drop
-    if (window.Sortable) {
-      if (window.itemsSortable) {
-        window.itemsSortable.destroy();
-      }
-      window.itemsSortable = Sortable.create(tbody, {
-        handle: '.drag-handle',
-        animation: 150,
-        onEnd: function (evt) {
-          // Get the new order of visible (filtered) items from the DOM
-          const newFilteredOrder = Array.from(tbody.children).map(row => row.children[1].textContent);
-          loadItems((items) => {
-            // Determine which items are currently visible (filtered)
-            let showAll = document.getElementById('showAllLinks').checked;
-            let filteredItems = items;
-            if (!showAll) {
-              // Use the same filtering as in renderItems
-              getActiveTabUrl().then(activeUrl => {
-                filteredItems = filterItemsForCurrentUrl(activeUrl, items);
-                // Reorder filtered items in the full items array
-                const filteredMap = {};
-                filteredItems.forEach(item => { filteredMap[item.callName] = item; });
-                // Build new filtered order
-                const newFilteredItems = newFilteredOrder.map(name => filteredMap[name]);
-                // Build new full items array
-                let newItems = [];
-                let filteredIdx = 0;
-                for (let i = 0; i < items.length; i++) {
-                  if (filteredItems.includes(items[i])) {
-                    newItems.push(newFilteredItems[filteredIdx++]);
-                  } else {
-                    newItems.push(items[i]);
+        tr.appendChild(tdActions);
+        tbody.appendChild(tr);
+      });
+      // Initialize SortableJS for drag-and-drop
+      if (window.Sortable) {
+        if (window.itemsSortable) { window.itemsSortable.destroy(); }
+        window.itemsSortable = Sortable.create(tbody, {
+          handle: '.drag-handle',
+          animation: 150,
+          onEnd: function (evt) {
+            const newFilteredOrder = Array.from(tbody.children).map(row => row.children[1].textContent);
+            loadItems((allItems) => {
+              const curProfileId = getActiveProfileId();
+              let profileFiltered = curProfileId
+                ? allItems.filter(item => item.profiles && item.profiles.includes(curProfileId))
+                : allItems;
+              let visibleItems = profileFiltered;
+              const showAll = document.getElementById('showAllLinks').checked;
+              if (!showAll) {
+                getActiveTabUrl().then(activeUrl => {
+                  visibleItems = filterItemsForCurrentUrl(activeUrl, profileFiltered);
+                  const filteredMap = {};
+                  visibleItems.forEach(item => { filteredMap[item.callName] = item; });
+                  const newFilteredItems = newFilteredOrder.map(name => filteredMap[name]);
+                  let newItems = []; let idx = 0;
+                  for (let i = 0; i < allItems.length; i++) {
+                    if (visibleItems.includes(allItems[i])) { newItems.push(newFilteredItems[idx++]); }
+                    else { newItems.push(allItems[i]); }
                   }
+                  saveItems(newItems, renderItems);
+                });
+              } else {
+                const filteredMap = {};
+                visibleItems.forEach(item => { filteredMap[item.callName] = item; });
+                const newFilteredItems = newFilteredOrder.map(name => filteredMap[name]);
+                let newItems = []; let idx = 0;
+                for (let i = 0; i < allItems.length; i++) {
+                  if (visibleItems.includes(allItems[i])) { newItems.push(newFilteredItems[idx++]); }
+                  else { newItems.push(allItems[i]); }
                 }
                 saveItems(newItems, renderItems);
-              });
-            } else {
-              // If showing all, reorder the full array
-              const nameToItem = {};
-              items.forEach(item => { nameToItem[item.callName] = item; });
-              const newItems = newFilteredOrder.map(name => nameToItem[name]);
-              saveItems(newItems, renderItems);
-            }
-          });
-        }
-      });
-    }
+              }
+            });
+          }
+        });
+      }
+    });
   });
 }
 
@@ -208,6 +275,137 @@ function toggleItemVisibility(index) {
     items[index].hidden = !items[index].hidden;
     saveItems(items, renderItems);
   });
+}
+
+// --- Profile Management ---
+
+function renderProfileDropdown(callback) {
+  loadProfiles((profiles) => {
+    loadActiveProfile((activeId) => {
+      const select = document.getElementById('profileSelect');
+      select.innerHTML = '';
+      profiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        if (p.id === activeId) opt.selected = true;
+        select.appendChild(opt);
+      });
+      if (callback) callback(profiles, activeId);
+    });
+  });
+}
+
+function getActiveProfileId() {
+  const select = document.getElementById('profileSelect');
+  return select ? select.value : '';
+}
+
+function addProfile() {
+  const name = prompt('Enter new profile name:');
+  if (!name || !name.trim()) return;
+  loadProfiles((profiles) => {
+    const newProfile = { id: generateProfileId(), name: name.trim() };
+    profiles.push(newProfile);
+    saveProfiles(profiles, () => {
+      saveActiveProfile(newProfile.id, () => {
+        renderProfileDropdown(() => renderItems());
+      });
+    });
+  });
+}
+
+function editProfile() {
+  const activeId = getActiveProfileId();
+  if (!activeId) return;
+  loadProfiles((profiles) => {
+    const profile = profiles.find(p => p.id === activeId);
+    if (!profile) return;
+    const newName = prompt('Rename profile:', profile.name);
+    if (!newName || !newName.trim()) return;
+    profile.name = newName.trim();
+    saveProfiles(profiles, () => {
+      renderProfileDropdown(() => renderItems());
+    });
+  });
+}
+
+function duplicateProfile() {
+  const activeId = getActiveProfileId();
+  if (!activeId) return;
+  loadProfiles((profiles) => {
+    const source = profiles.find(p => p.id === activeId);
+    if (!source) return;
+    const newId = generateProfileId();
+    const existingNames = new Set(profiles.map(p => p.name));
+    let counter = 1;
+    let newName = source.name + ' (' + counter + ')';
+    while (existingNames.has(newName)) { counter++; newName = source.name + ' (' + counter + ')'; }
+    profiles.push({ id: newId, name: newName });
+    saveProfiles(profiles, () => {
+      loadItems((items) => {
+        items.forEach(item => {
+          if (item.profiles && item.profiles.includes(activeId) && !item.profiles.includes(newId)) {
+            item.profiles.push(newId);
+          }
+        });
+        saveItems(items, () => {
+          saveActiveProfile(newId, () => {
+            renderProfileDropdown(() => renderItems());
+          });
+        });
+      });
+    });
+  });
+}
+
+function deleteProfile() {
+  const activeId = getActiveProfileId();
+  if (!activeId) return;
+  loadProfiles((profiles) => {
+    if (profiles.length <= 1) { alert('Cannot delete the last profile.'); return; }
+    const profile = profiles.find(p => p.id === activeId);
+    if (!confirm('Delete profile "' + (profile ? profile.name : '') + '"? Items will remain but lose this profile assignment.')) return;
+    const newProfiles = profiles.filter(p => p.id !== activeId);
+    saveProfiles(newProfiles, () => {
+      loadItems((items) => {
+        items.forEach(item => { if (item.profiles) { item.profiles = item.profiles.filter(id => id !== activeId); } });
+        saveItems(items, () => {
+          saveActiveProfile(newProfiles[0].id, () => {
+            renderProfileDropdown(() => renderItems());
+          });
+        });
+      });
+    });
+  });
+}
+
+function renderProfileCheckboxes(selectedProfiles) {
+  const container = document.getElementById('profileCheckboxes');
+  if (!container) return;
+  container.innerHTML = '';
+  loadProfiles((profiles) => {
+    profiles.forEach(p => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'form-check form-check-inline';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'form-check-input';
+      cb.id = 'profile_cb_' + p.id; cb.value = p.id;
+      cb.checked = selectedProfiles.includes(p.id);
+      const label = document.createElement('label');
+      label.className = 'form-check-label';
+      label.htmlFor = 'profile_cb_' + p.id;
+      label.textContent = p.name;
+      wrapper.appendChild(cb); wrapper.appendChild(label);
+      container.appendChild(wrapper);
+    });
+  });
+}
+
+function getSelectedProfileIds() {
+  const container = document.getElementById('profileCheckboxes');
+  if (!container) return [];
+  return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 }
 
 // Modal dialog handling.
@@ -499,6 +697,7 @@ function openModal(mode, index) {
     document.getElementById('currentTab').checked = false;
     actionTypeInput.value = 'openUrl';
     renderActionParamsFields('openUrl');
+    renderProfileCheckboxes([getActiveProfileId()]);
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
       if (tabs[0]) {
         const currentUrl = tabs[0].url;
@@ -517,6 +716,7 @@ function openModal(mode, index) {
       document.getElementById('currentTab').checked = item.currentTab;
       actionTypeInput.value = item.actionType || 'alert';
       renderActionParamsFields(item.actionType || 'alert', item.actionParams || {});
+      renderProfileCheckboxes(item.profiles || []);
       
       // Initialize rich text editor if this is a rich text modal
       if ((item.actionType || 'alert') === 'richTextModal') {
@@ -665,11 +865,17 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
       }
     }
   }
-  const newItem = { pkURL, callName, url, currentTab, actionType, actionParams };
+  const selectedProfiles = getSelectedProfileIds();
+  if (selectedProfiles.length === 0) {
+    alert('Please assign the item to at least one profile.');
+    return;
+  }
+  const newItem = { pkURL, callName, url, currentTab, actionType, actionParams, profiles: selectedProfiles };
   loadItems((items) => {
     if (editIndex === '') {
       items.push(newItem);
     } else {
+      newItem.hidden = items[editIndex].hidden;
       items[editIndex] = newItem;
     }
     saveItems(items, () => {
@@ -719,46 +925,62 @@ loadItems((items) => {
   }
 });
 
-// Export items as a JSON file.
+// Export items for the active profile as a JSON file.
 document.getElementById('btnExport').addEventListener('click', function() {
+  const activeProfileId = getActiveProfileId();
   loadItems((items) => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 4));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "ifs_quick_call_items.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    loadProfiles((profiles) => {
+      const profileItems = activeProfileId
+        ? items.filter(item => item.profiles && item.profiles.includes(activeProfileId))
+        : items;
+      const activeProfile = profiles.find(p => p.id === activeProfileId);
+      const profileName = activeProfile ? activeProfile.name.replace(/[^a-zA-Z0-9]/g, '_') : 'all';
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profileItems, null, 4));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", "ifs_quick_call_" + profileName + ".json");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    });
   });
 });
 
-// Import items from a JSON file.
+// Import items from a JSON file into the active profile.
 document.getElementById('btnImport').addEventListener('click', function() {
   document.getElementById('fileInput').click();
 });
 
 document.getElementById('fileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
-  if (!file) {
-    return;
-  }
+  if (!file) return;
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
       const importedItems = JSON.parse(e.target.result);
-      if (Array.isArray(importedItems)) {
-        saveItems(importedItems, () => {
-          renderItems();
-          alert("Import successful!");
+      if (!Array.isArray(importedItems)) { alert("Invalid file format."); return; }
+      const activeProfileId = getActiveProfileId();
+      const doReplace = confirm("Replace all items in this profile?\n\nOK = Replace (remove existing, add imported)\nCancel = Merge (keep existing, add imported)");
+      loadItems((allItems) => {
+        importedItems.forEach(item => {
+          if (!item.profiles || !Array.isArray(item.profiles)) item.profiles = [];
+          if (activeProfileId && !item.profiles.includes(activeProfileId)) item.profiles.push(activeProfileId);
         });
-      } else {
-        alert("Invalid file format.");
-      }
-    } catch (error) {
-      alert("Error parsing the file.");
-    }
+        if (doReplace) {
+          const kept = allItems.filter(item => {
+            if (!item.profiles) return true;
+            item.profiles = item.profiles.filter(id => id !== activeProfileId);
+            return item.profiles.length > 0;
+          });
+          saveItems(kept.concat(importedItems), () => { renderItems(); alert("Import successful! (replaced)"); });
+        } else {
+          saveItems(allItems.concat(importedItems), () => { renderItems(); alert("Import successful! (merged)"); });
+        }
+      });
+    } catch (error) { alert("Error parsing the file."); }
   };
   reader.readAsText(file);
+  this.value = '';
 });
 
 // Event listener for the Add New Item button.
@@ -842,8 +1064,19 @@ function initHoverSettings() {
   });
 }
 
-// Initial render (default: show only current tab's links)
+// Initial render with profile migration
 document.addEventListener('DOMContentLoaded', function() {
-  renderItems();
+  migrateToProfiles(() => {
+    renderProfileDropdown(() => { renderItems(); });
+  });
   initHoverSettings();
+
+  document.getElementById('btnAddProfile').addEventListener('click', addProfile);
+  document.getElementById('btnEditProfile').addEventListener('click', editProfile);
+  document.getElementById('btnDuplicateProfile').addEventListener('click', duplicateProfile);
+  document.getElementById('btnDeleteProfile').addEventListener('click', deleteProfile);
+
+  document.getElementById('profileSelect').addEventListener('change', function() {
+    saveActiveProfile(this.value, () => { renderItems(); });
+  });
 });
