@@ -603,6 +603,119 @@ function renderActionParamsFields(actionType, params = {}) {
         <label class="form-check-label" for="param_published_incognito">Open in Incognito window</label>
       </div>
     `;
+  } else if (actionType === 'imageSlideshow') {
+    const images = params.images && Array.isArray(params.images) ? params.images : [];
+    window.imageSlideshowImages = [...images];
+    actionParamsContainer.innerHTML = `
+      <div class="mb-3">
+        <label>Slideshow Images:</label>
+        <div id="param_imageslide_dropzone" tabindex="0" class="border border-2 border-dashed rounded p-3 mb-2 text-center" style="min-height: 80px; cursor: pointer; background: #f8f9fa; outline: none;">
+          <span class="text-muted">Paste or drop images here (click to focus, then Ctrl+V)</span>
+        </div>
+        <div class="d-flex gap-2 mb-2">
+          <input type="file" id="param_imageslide_fileinput" accept="image/*" multiple style="display: none;">
+          <button type="button" id="param_imageslide_choosebtn" class="btn btn-sm btn-outline-primary">Choose files...</button>
+        </div>
+        <div id="param_imageslide_list" class="d-flex flex-wrap gap-2 mt-2"></div>
+        <small class="text-muted d-block mt-1">Add images via paste (Ctrl+V), drag-and-drop, or file picker. Order = slide order.</small>
+      </div>
+    `;
+    const dropZone = document.getElementById('param_imageslide_dropzone');
+    const fileInput = document.getElementById('param_imageslide_fileinput');
+    const chooseBtn = document.getElementById('param_imageslide_choosebtn');
+    const listEl = document.getElementById('param_imageslide_list');
+
+    function addImagesFromFiles(files) {
+      if (!files || files.length === 0) return;
+      const reader = new FileReader();
+      let idx = 0;
+      function readNext() {
+        if (idx >= files.length) {
+          renderThumbnails();
+          return;
+        }
+        const f = files[idx];
+        if (f.type && f.type.startsWith('image/')) {
+          reader.onload = function() {
+            window.imageSlideshowImages.push(reader.result);
+            idx++;
+            readNext();
+          };
+          reader.readAsDataURL(f);
+        } else {
+          idx++;
+          readNext();
+        }
+      }
+      readNext();
+    }
+
+    function renderThumbnails() {
+      listEl.innerHTML = '';
+      (window.imageSlideshowImages || []).forEach((dataUrl, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'position-relative d-inline-block';
+        wrap.style.width = '60px';
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        img.style.width = '60px';
+        img.style.height = '45px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '4px';
+        img.style.border = '1px solid #dee2e6';
+        wrap.appendChild(img);
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'btn btn-sm btn-danger position-absolute';
+        rm.style.top = '-6px';
+        rm.style.right = '-6px';
+        rm.style.padding = '0 4px';
+        rm.style.fontSize = '10px';
+        rm.innerHTML = '&times;';
+        rm.onclick = function() {
+          window.imageSlideshowImages.splice(i, 1);
+          renderThumbnails();
+        };
+        wrap.appendChild(rm);
+        listEl.appendChild(wrap);
+      });
+    }
+
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', function() {
+      addImagesFromFiles(Array.from(this.files || []));
+      this.value = '';
+    });
+
+    dropZone.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.style.background = '#e9ecef';
+    });
+    dropZone.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      this.style.background = '#f8f9fa';
+    });
+    dropZone.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.style.background = '#f8f9fa';
+      addImagesFromFiles(Array.from(e.dataTransfer.files || []));
+    });
+
+    dropZone.addEventListener('paste', function(e) {
+      e.preventDefault();
+      const items = e.clipboardData && e.clipboardData.items ? e.clipboardData.items : [];
+      const files = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file' && items[i].type && items[i].type.startsWith('image/')) {
+          files.push(items[i].getAsFile());
+        }
+      }
+      addImagesFromFiles(files);
+    });
+
+    renderThumbnails();
   }
 }
 
@@ -849,6 +962,8 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
   } else if (actionType === 'publishedPageUrl') {
     actionParams.pageUrl = document.getElementById('param_published_url').value.trim();
     actionParams.incognito = document.getElementById('param_published_incognito').checked;
+  } else if (actionType === 'imageSlideshow') {
+    actionParams.images = window.imageSlideshowImages && Array.isArray(window.imageSlideshowImages) ? window.imageSlideshowImages : [];
   }
   const editIndex = document.getElementById('editIndex').value;
   if (!pkURL || !callName || (actionType === 'openUrl' && !url)) {
@@ -900,6 +1015,12 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
   if (actionType === 'publishedPageUrl') {
     if (!actionParams.pageUrl || !actionParams.pageUrl.match(/^https?:\/\/.+/)) {
       alert('Please enter a valid Published Page URL starting with http:// or https://');
+      return;
+    }
+  }
+  if (actionType === 'imageSlideshow') {
+    if (!actionParams.images || actionParams.images.length === 0) {
+      alert('Please add at least one image to the slideshow.');
       return;
     }
   }

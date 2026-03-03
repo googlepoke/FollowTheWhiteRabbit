@@ -1155,6 +1155,90 @@
             });
             document.body.appendChild(ppOverlay);
             break;
+          case 'imageSlideshow':
+            var slideImages = (item.actionParams && item.actionParams.images && Array.isArray(item.actionParams.images)) ? item.actionParams.images : [];
+            if (slideImages.length === 0) break;
+
+            var slideOverlay = document.createElement('div');
+            slideOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:999999999;display:flex;align-items:center;justify-content:center;';
+
+            var slideFrame = document.createElement('div');
+            slideFrame.style.cssText = 'position:relative;width:100%;max-width:min(100vw, 177.78vh);max-height:min(100vh, 56.25vw);aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:#000;';
+
+            var slideImg = document.createElement('img');
+            slideImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;object-position:center;';
+            slideImg.src = slideImages[0];
+            slideImg.alt = 'Slide 1';
+
+            var slideIdx = 0;
+            function slideShowImg() {
+              slideImg.src = slideImages[slideIdx];
+              slideImg.alt = 'Slide ' + (slideIdx + 1);
+              if (slideCounter) slideCounter.textContent = (slideIdx + 1) + ' / ' + slideImages.length;
+            }
+
+            var slideCounter = document.createElement('div');
+            slideCounter.style.cssText = 'position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.8);font-size:14px;z-index:10;';
+            slideCounter.textContent = '1 / ' + slideImages.length;
+
+            var fullscreenBtn = document.createElement('button');
+            fullscreenBtn.innerHTML = '&#x26F6;';
+            fullscreenBtn.title = 'Fullscreen';
+            fullscreenBtn.style.cssText = 'position:absolute;top:12px;right:48px;font-size:20px;background:rgba(255,255,255,0.2);border:none;color:#fff;cursor:pointer;width:36px;height:36px;border-radius:4px;z-index:10;display:flex;align-items:center;justify-content:center;';
+            fullscreenBtn.onclick = function() {
+              if (slideFrame.requestFullscreen) {
+                slideFrame.requestFullscreen().catch(function() {});
+              }
+            };
+
+            var closeSlideBtn = document.createElement('button');
+            closeSlideBtn.innerHTML = '&times;';
+            closeSlideBtn.style.cssText = 'position:absolute;top:12px;right:12px;font-size:28px;background:rgba(255,255,255,0.2);border:none;color:#fff;cursor:pointer;width:36px;height:36px;border-radius:4px;z-index:10;display:flex;align-items:center;justify-content:center;line-height:1;';
+            closeSlideBtn.onclick = function() {
+              document.removeEventListener('keydown', slideKeyHandler);
+              if (document.fullscreenElement === slideFrame && document.exitFullscreen) document.exitFullscreen();
+              document.body.removeChild(slideOverlay);
+            };
+
+            slideFrame.appendChild(slideImg);
+            slideFrame.appendChild(slideCounter);
+            slideFrame.appendChild(fullscreenBtn);
+            slideFrame.appendChild(closeSlideBtn);
+            slideOverlay.appendChild(slideFrame);
+
+            var slideKeyHandler = function(e) {
+              if (e.key === 'Escape') {
+                if (document.fullscreenElement === slideFrame && document.exitFullscreen) {
+                  document.exitFullscreen();
+                } else {
+                  document.removeEventListener('keydown', slideKeyHandler);
+                  document.body.removeChild(slideOverlay);
+                }
+                e.preventDefault();
+                return;
+              }
+              if (e.key === 'ArrowLeft') {
+                slideIdx = slideIdx <= 0 ? 0 : slideIdx - 1;
+                slideShowImg();
+                e.preventDefault();
+              } else if (e.key === 'ArrowRight') {
+                slideIdx = slideIdx >= slideImages.length - 1 ? slideImages.length - 1 : slideIdx + 1;
+                slideShowImg();
+                e.preventDefault();
+              }
+            };
+            document.addEventListener('keydown', slideKeyHandler);
+
+            slideOverlay.addEventListener('click', function(ev) {
+              if (ev.target === slideOverlay) {
+                document.removeEventListener('keydown', slideKeyHandler);
+                if (document.fullscreenElement === slideFrame && document.exitFullscreen) document.exitFullscreen();
+                document.body.removeChild(slideOverlay);
+              }
+            });
+
+            document.body.appendChild(slideOverlay);
+            break;
         }
       });
 
