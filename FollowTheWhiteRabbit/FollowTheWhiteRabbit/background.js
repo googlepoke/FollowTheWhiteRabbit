@@ -2,9 +2,17 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getActiveTabUrl") {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs && tabs[0]) {
-        sendResponse({ activeUrl: tabs[0].url });
-      } else {
+      try {
+        if (chrome.runtime.lastError) {
+          sendResponse({ activeUrl: "" });
+          return;
+        }
+        if (tabs && tabs[0]) {
+          sendResponse({ activeUrl: tabs[0].url });
+        } else {
+          sendResponse({ activeUrl: "" });
+        }
+      } catch (err) {
         sendResponse({ activeUrl: "" });
       }
     });

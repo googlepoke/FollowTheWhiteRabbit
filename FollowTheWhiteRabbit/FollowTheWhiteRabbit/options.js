@@ -651,11 +651,16 @@ function renderActionParamsFields(actionType, params = {}) {
     }
 
     function renderThumbnails() {
+      if (window.imageSlideshowSortable) {
+        window.imageSlideshowSortable.destroy();
+        window.imageSlideshowSortable = null;
+      }
       listEl.innerHTML = '';
       (window.imageSlideshowImages || []).forEach((dataUrl, i) => {
         const wrap = document.createElement('div');
-        wrap.className = 'position-relative d-inline-block';
+        wrap.className = 'position-relative d-inline-block slide-thumb-item';
         wrap.style.width = '60px';
+        wrap.dataset.index = String(i);
         const img = document.createElement('img');
         img.src = dataUrl;
         img.style.width = '60px';
@@ -672,13 +677,38 @@ function renderActionParamsFields(actionType, params = {}) {
         rm.style.padding = '0 4px';
         rm.style.fontSize = '10px';
         rm.innerHTML = '&times;';
-        rm.onclick = function() {
-          window.imageSlideshowImages.splice(i, 1);
-          renderThumbnails();
+        rm.onclick = function(e) {
+          e.stopPropagation();
+          const idx = Array.from(listEl.children).indexOf(wrap);
+          if (idx >= 0) {
+            window.imageSlideshowImages.splice(idx, 1);
+            renderThumbnails();
+          }
         };
         wrap.appendChild(rm);
         listEl.appendChild(wrap);
       });
+      if (window.Sortable && window.imageSlideshowImages && window.imageSlideshowImages.length > 0) {
+        window.imageSlideshowSortable = Sortable.create(listEl, {
+          animation: 150,
+          direction: 'horizontal',
+          filter: 'button, .btn',
+          ghostClass: 'slide-thumb-ghost',
+          chosenClass: 'slide-thumb-chosen',
+          dragClass: 'slide-thumb-drag',
+          placeholderClass: 'slide-drop-indicator',
+          placeholder: 'div',
+          onEnd: function() {
+            const newOrder = Array.from(listEl.children)
+              .filter(function(el) { return el.dataset.index !== undefined; })
+              .map(function(el) { return parseInt(el.dataset.index, 10); });
+            if (newOrder.length > 0) {
+              const reordered = newOrder.map(function(i) { return window.imageSlideshowImages[i]; });
+              window.imageSlideshowImages = reordered;
+            }
+          }
+        });
+      }
     }
 
     chooseBtn.addEventListener('click', () => fileInput.click());

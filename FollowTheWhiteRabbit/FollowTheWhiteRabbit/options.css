@@ -194,3 +194,29 @@ div, ul, li {
 .ql-tooltip {
   z-index: 1001 !important;
 }
+
+/* Image Slideshow thumbnail drag-and-drop */
+.slide-thumb-item {
+  cursor: grab;
+}
+
+.slide-thumb-item:active {
+  cursor: grabbing;
+}
+
+.slide-thumb-ghost {
+  opacity: 0.5;
+}
+
+.slide-thumb-chosen,
+.slide-thumb-drag {
+  cursor: grabbing;
+}
+
+.slide-drop-indicator {
+  width: 4px !important;
+  min-width: 4px !important;
+  height: 45px;
+  background: #0365D8;
+  border-radius: 2px;
+}

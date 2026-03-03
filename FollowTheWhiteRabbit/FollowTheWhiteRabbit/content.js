@@ -1279,11 +1279,9 @@
     // Request the active tab URL from the background script.
     chrome.runtime.sendMessage({ action: "getActiveTabUrl" }, (response) => {
       if (chrome.runtime.lastError) {
-        console.error("Error retrieving active URL:", chrome.runtime.lastError);
-        return;
+        console.error("Error retrieving active URL:", chrome.runtime.lastError.message || chrome.runtime.lastError);
       }
-      
-      const activeUrl = response.activeUrl || "";
+      const activeUrl = (response && response.activeUrl) ? response.activeUrl : "";
       // Load the items from chrome.storage.local, then filter.
       loadItems((items) => {
         const filteredItems = filterItemsForCurrentUrl(activeUrl, items);
