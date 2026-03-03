@@ -590,6 +590,15 @@ function renderActionParamsFields(actionType, params = {}) {
           placeholder="Paste your markdown here..." style="font-family: monospace; font-size: 13px;">${(params.markdownText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
       </div>
     `;
+  } else if (actionType === 'publishedPageUrl') {
+    actionParamsContainer.innerHTML = `
+      <div class="mb-3">
+        <label>Published Page URL:</label>
+        <input type="url" id="param_published_url" class="form-control"
+          placeholder="https://mysite.notion.site/..." value="${params.pageUrl || ''}">
+        <small class="text-muted">Paste the full URL of the published page (e.g., Notion, Confluence)</small>
+      </div>
+    `;
   }
 }
 
@@ -833,6 +842,8 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     actionParams.defaultText = document.getElementById('param_note_text').value;
   } else if (actionType === 'markdown') {
     actionParams.markdownText = document.getElementById('param_markdown_content').value;
+  } else if (actionType === 'publishedPageUrl') {
+    actionParams.pageUrl = document.getElementById('param_published_url').value.trim();
   }
   const editIndex = document.getElementById('editIndex').value;
   if (!pkURL || !callName || (actionType === 'openUrl' && !url)) {
@@ -879,6 +890,12 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
         alert(`Invalid URL for "${item.label}". URLs must start with http:// or https://`);
         return;
       }
+    }
+  }
+  if (actionType === 'publishedPageUrl') {
+    if (!actionParams.pageUrl || !actionParams.pageUrl.match(/^https?:\/\/.+/)) {
+      alert('Please enter a valid Published Page URL starting with http:// or https://');
+      return;
     }
   }
   const selectedProfiles = getSelectedProfileIds();

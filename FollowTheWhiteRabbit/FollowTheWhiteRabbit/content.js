@@ -1039,6 +1039,117 @@
             });
             document.body.appendChild(mdOverlay);
             break;
+          case 'publishedPageUrl':
+            var ppUrl = (item.actionParams && item.actionParams.pageUrl) || '';
+            if (!ppUrl) break;
+
+            var ppOverlay = document.createElement('div');
+            ppOverlay.className = 'ifs-published-page-overlay';
+            ppOverlay.style.position = 'fixed';
+            ppOverlay.style.top = '0';
+            ppOverlay.style.left = '0';
+            ppOverlay.style.width = '100vw';
+            ppOverlay.style.height = '100vh';
+            ppOverlay.style.background = 'rgba(0,0,0,0.6)';
+            ppOverlay.style.zIndex = 999999999;
+            ppOverlay.style.display = 'flex';
+            ppOverlay.style.alignItems = 'center';
+            ppOverlay.style.justifyContent = 'center';
+
+            var ppBox = document.createElement('div');
+            ppBox.className = 'ifs-published-page-modal';
+            ppBox.style.background = '#fff';
+            ppBox.style.borderRadius = '12px';
+            ppBox.style.width = '95vw';
+            ppBox.style.height = '90vh';
+            ppBox.style.position = 'relative';
+            ppBox.style.zIndex = 999999999;
+            ppBox.style.boxShadow = '0 20px 60px rgba(0,0,0,0.3)';
+            ppBox.style.overflow = 'hidden';
+            ppBox.style.display = 'flex';
+            ppBox.style.flexDirection = 'column';
+
+            var ppIframe = document.createElement('iframe');
+            ppIframe.src = ppUrl;
+            ppIframe.style.width = '100%';
+            ppIframe.style.flex = '1';
+            ppIframe.style.border = 'none';
+            ppIframe.style.borderRadius = '0 0 12px 12px';
+            ppIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+
+            var ppFallbackShown = false;
+            var ppFallbackTimer = setTimeout(function() {
+              if (!ppFallbackShown) {
+                ppFallbackShown = true;
+                var fallbackBar = document.createElement('div');
+                fallbackBar.style.padding = '8px 16px';
+                fallbackBar.style.background = '#fff3cd';
+                fallbackBar.style.color = '#856404';
+                fallbackBar.style.fontSize = '13px';
+                fallbackBar.style.display = 'flex';
+                fallbackBar.style.alignItems = 'center';
+                fallbackBar.style.gap = '12px';
+                fallbackBar.textContent = 'Page may not support embedded viewing. ';
+                var fallbackBtn = document.createElement('button');
+                fallbackBtn.textContent = 'Open in new window';
+                fallbackBtn.style.background = '#0365D8';
+                fallbackBtn.style.color = '#fff';
+                fallbackBtn.style.border = 'none';
+                fallbackBtn.style.padding = '4px 12px';
+                fallbackBtn.style.borderRadius = '4px';
+                fallbackBtn.style.cursor = 'pointer';
+                fallbackBtn.style.fontSize = '13px';
+                fallbackBtn.onclick = function() {
+                  window.open(ppUrl, '_blank', 'width=1200,height=800,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+                  document.body.removeChild(ppOverlay);
+                };
+                fallbackBar.appendChild(fallbackBtn);
+                ppBox.insertBefore(fallbackBar, ppIframe);
+              }
+            }, 5000);
+
+            ppIframe.addEventListener('load', function() {
+              clearTimeout(ppFallbackTimer);
+            });
+
+            ppBox.appendChild(ppIframe);
+
+            var ppCloseBtn = document.createElement('button');
+            ppCloseBtn.innerHTML = '&times;';
+            ppCloseBtn.style.position = 'absolute';
+            ppCloseBtn.style.top = '10px';
+            ppCloseBtn.style.right = '16px';
+            ppCloseBtn.style.fontSize = '28px';
+            ppCloseBtn.style.background = 'rgba(255,255,255,0.9)';
+            ppCloseBtn.style.border = 'none';
+            ppCloseBtn.style.cursor = 'pointer';
+            ppCloseBtn.style.color = '#333';
+            ppCloseBtn.style.zIndex = 999999999;
+            ppCloseBtn.style.width = '36px';
+            ppCloseBtn.style.height = '36px';
+            ppCloseBtn.style.borderRadius = '50%';
+            ppCloseBtn.style.display = 'flex';
+            ppCloseBtn.style.alignItems = 'center';
+            ppCloseBtn.style.justifyContent = 'center';
+            ppCloseBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            ppCloseBtn.style.transition = 'all 0.2s ease';
+            ppCloseBtn.onmouseover = function() { ppCloseBtn.style.background = '#fff'; };
+            ppCloseBtn.onmouseout = function() { ppCloseBtn.style.background = 'rgba(255,255,255,0.9)'; };
+            ppCloseBtn.onclick = function() {
+              clearTimeout(ppFallbackTimer);
+              document.body.removeChild(ppOverlay);
+            };
+            ppBox.appendChild(ppCloseBtn);
+
+            ppOverlay.appendChild(ppBox);
+            ppOverlay.addEventListener('click', function(ev) {
+              if (ev.target === ppOverlay) {
+                clearTimeout(ppFallbackTimer);
+                document.body.removeChild(ppOverlay);
+              }
+            });
+            document.body.appendChild(ppOverlay);
+            break;
         }
       });
 
