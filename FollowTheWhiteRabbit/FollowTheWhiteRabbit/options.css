@@ -2,9 +2,9 @@ body {
   font-family: Arial, sans-serif;
   margin: 0;
   padding: 0;
-  height: 1000px;
-  width: 985px;
-
+  min-width: 800px;
+  min-height: 600px;
+  box-sizing: border-box;
 }
 
 .container {
@@ -83,11 +83,13 @@ table, th, td {
 
 .modal-content {
   background-color: #fefefe;
-  margin: 10% auto; 
+  margin: 5% auto;
   padding: 20px;
   border: 1px solid #888;
-  width: 90%;
+  width: 95%;
   max-width: 800px;
+  max-height: 85vh;
+  overflow-y: auto;
   border-radius: 0px;
 }
 
@@ -219,4 +221,28 @@ div, ul, li {
   height: 45px;
   background: #0365D8;
   border-radius: 2px;
+}
+
+/* Image Slideshow thumbnail hover preview (positioned by JS via fixed) */
+.slide-thumb-preview {
+  z-index: 9999;
+  padding: 4px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border: 1px solid #dee2e6;
+  pointer-events: none;
+}
+
+.slide-thumb-preview img {
+  display: block;
+  width: 160px;
+  height: 120px;
+  object-fit: contain;
+  border-radius: 2px;
+}
+
+/* Image Slideshow double-click full preview overlay */
+.slide-preview-overlay {
+  cursor: pointer;
 }
