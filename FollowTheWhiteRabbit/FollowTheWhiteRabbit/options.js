@@ -582,6 +582,14 @@ function renderActionParamsFields(actionType, params = {}) {
         colorPreview.style.backgroundColor = this.value;
       });
     }
+  } else if (actionType === 'markdown') {
+    actionParamsContainer.innerHTML = `
+      <div class="mb-3">
+        <label>Markdown Content:</label>
+        <textarea id="param_markdown_content" class="form-control" rows="10"
+          placeholder="Paste your markdown here..." style="font-family: monospace; font-size: 13px;">${(params.markdownText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+      </div>
+    `;
   }
 }
 
@@ -823,6 +831,8 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
   } else if (actionType === 'note') {
     actionParams.defaultColor = document.getElementById('param_note_color').value;
     actionParams.defaultText = document.getElementById('param_note_text').value;
+  } else if (actionType === 'markdown') {
+    actionParams.markdownText = document.getElementById('param_markdown_content').value;
   }
   const editIndex = document.getElementById('editIndex').value;
   if (!pkURL || !callName || (actionType === 'openUrl' && !url)) {

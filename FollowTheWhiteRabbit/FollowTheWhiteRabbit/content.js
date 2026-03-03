@@ -966,6 +966,79 @@
               activeNotes.set(noteStorageKey, noteElement);
             });
             break;
+          case 'markdown':
+            var mdOverlay = document.createElement('div');
+            mdOverlay.style.position = 'fixed';
+            mdOverlay.style.top = '0';
+            mdOverlay.style.left = '0';
+            mdOverlay.style.width = '100vw';
+            mdOverlay.style.height = '100vh';
+            mdOverlay.style.background = 'rgba(0,0,0,0.5)';
+            mdOverlay.style.zIndex = 999999999;
+            mdOverlay.style.display = 'flex';
+            mdOverlay.style.alignItems = 'center';
+            mdOverlay.style.justifyContent = 'center';
+            mdOverlay.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+            var mdBox = document.createElement('div');
+            mdBox.style.background = '#ffffff';
+            mdBox.style.padding = '32px';
+            mdBox.style.borderRadius = '12px';
+            mdBox.style.maxWidth = '90vw';
+            mdBox.style.maxHeight = '90vh';
+            mdBox.style.overflow = 'auto';
+            mdBox.style.position = 'relative';
+            mdBox.style.zIndex = 999999999;
+            mdBox.style.boxShadow = '0 20px 60px rgba(0,0,0,0.3)';
+            mdBox.style.width = '800px';
+
+            var mdContent = document.createElement('div');
+            mdContent.className = 'ifs-markdown-content';
+            mdContent.style.lineHeight = '1.7';
+            mdContent.style.color = '#333';
+            mdContent.style.fontSize = '16px';
+            mdContent.style.maxHeight = 'calc(90vh - 100px)';
+            mdContent.style.overflow = 'auto';
+            mdContent.style.paddingRight = '40px';
+
+            var rawMd = (item.actionParams && item.actionParams.markdownText) || '';
+            if (typeof marked !== 'undefined' && marked.parse) {
+              mdContent.innerHTML = marked.parse(rawMd);
+            } else {
+              mdContent.textContent = rawMd;
+            }
+
+            mdBox.appendChild(mdContent);
+
+            var mdCloseBtn = document.createElement('button');
+            mdCloseBtn.innerHTML = '&times;';
+            mdCloseBtn.style.position = 'absolute';
+            mdCloseBtn.style.top = '20px';
+            mdCloseBtn.style.right = '24px';
+            mdCloseBtn.style.fontSize = '28px';
+            mdCloseBtn.style.background = 'none';
+            mdCloseBtn.style.border = 'none';
+            mdCloseBtn.style.cursor = 'pointer';
+            mdCloseBtn.style.color = '#666';
+            mdCloseBtn.style.zIndex = 999999999;
+            mdCloseBtn.style.width = '32px';
+            mdCloseBtn.style.height = '32px';
+            mdCloseBtn.style.borderRadius = '50%';
+            mdCloseBtn.style.display = 'flex';
+            mdCloseBtn.style.alignItems = 'center';
+            mdCloseBtn.style.justifyContent = 'center';
+            mdCloseBtn.style.transition = 'all 0.2s ease';
+            mdCloseBtn.onmouseover = function() { mdCloseBtn.style.backgroundColor = 'rgba(0,0,0,0.1)'; };
+            mdCloseBtn.onmouseout = function() { mdCloseBtn.style.backgroundColor = 'transparent'; };
+            mdCloseBtn.onclick = function() { document.body.removeChild(mdOverlay); };
+            mdBox.appendChild(mdCloseBtn);
+
+            mdOverlay.appendChild(mdBox);
+            mdOverlay.addEventListener('click', function(ev) {
+              if (ev.target === mdOverlay) document.body.removeChild(mdOverlay);
+            });
+            document.body.appendChild(mdOverlay);
+            break;
         }
       });
 
