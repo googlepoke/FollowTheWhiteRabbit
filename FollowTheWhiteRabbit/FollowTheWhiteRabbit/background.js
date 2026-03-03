@@ -12,7 +12,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // Existing "navigate" handler (optional)
+  if (request.action === "openIncognito") {
+    chrome.windows.create({ url: request.url, incognito: true });
+  }
+
   if (request.action === "navigate") {
     const { url, currentTab } = request;
     if (currentTab) {

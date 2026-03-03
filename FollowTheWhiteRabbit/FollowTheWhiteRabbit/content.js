@@ -1043,6 +1043,11 @@
             var ppUrl = (item.actionParams && item.actionParams.pageUrl) || '';
             if (!ppUrl) break;
 
+            if (item.actionParams.incognito) {
+              chrome.runtime.sendMessage({ action: "openIncognito", url: ppUrl });
+              break;
+            }
+
             var ppOverlay = document.createElement('div');
             ppOverlay.className = 'ifs-published-page-overlay';
             ppOverlay.style.position = 'fixed';

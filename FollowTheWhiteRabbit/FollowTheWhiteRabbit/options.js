@@ -598,6 +598,10 @@ function renderActionParamsFields(actionType, params = {}) {
           placeholder="https://mysite.notion.site/..." value="${params.pageUrl || ''}">
         <small class="text-muted">Paste the full URL of the published page (e.g., Notion, Confluence)</small>
       </div>
+      <div class="form-check mt-2">
+        <input type="checkbox" class="form-check-input" id="param_published_incognito" ${params.incognito ? 'checked' : ''}>
+        <label class="form-check-label" for="param_published_incognito">Open in Incognito window</label>
+      </div>
     `;
   }
 }
@@ -844,6 +848,7 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     actionParams.markdownText = document.getElementById('param_markdown_content').value;
   } else if (actionType === 'publishedPageUrl') {
     actionParams.pageUrl = document.getElementById('param_published_url').value.trim();
+    actionParams.incognito = document.getElementById('param_published_incognito').checked;
   }
   const editIndex = document.getElementById('editIndex').value;
   if (!pkURL || !callName || (actionType === 'openUrl' && !url)) {
