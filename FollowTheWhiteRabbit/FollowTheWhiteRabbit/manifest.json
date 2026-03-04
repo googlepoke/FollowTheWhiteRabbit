@@ -4,7 +4,7 @@
   "version": "3.0",
   "description": "Manage your customizable RMB list.",
   "author": "Manie Cronje",
-  "permissions": ["tabs", "storage"],
+  "permissions": ["tabs", "storage", "unlimitedStorage"],
   "incognito": "spanning",
 
   "icons": {

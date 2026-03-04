@@ -42,7 +42,24 @@ function loadItems(callback) {
 function saveItems(items, callback) {
   let data = {};
   data[STORAGE_KEY] = items;
-  chrome.storage.local.set(data, callback);
+  chrome.storage.local.set(data, () => {
+    if (chrome.runtime.lastError) {
+      console.error("Save failed:", chrome.runtime.lastError.message);
+      if (callback) callback(chrome.runtime.lastError);
+    } else {
+      if (callback) callback(null);
+    }
+  });
+}
+
+function saveItemsAndRender(items) {
+  saveItems(items, (err) => {
+    if (err) {
+      alert("Failed to save: " + (err.message || "Storage quota exceeded. Try reducing image sizes or removing unused items."));
+      return;
+    }
+    renderItems();
+  });
 }
 
 function generateProfileId() {
@@ -213,7 +230,7 @@ async function renderItems() {
                     if (visibleItems.includes(allItems[i])) { newItems.push(newFilteredItems[idx++]); }
                     else { newItems.push(allItems[i]); }
                   }
-                  saveItems(newItems, renderItems);
+                  saveItemsAndRender(newItems);
                 });
               } else {
                 const filteredMap = {};
@@ -224,7 +241,7 @@ async function renderItems() {
                   if (visibleItems.includes(allItems[i])) { newItems.push(newFilteredItems[idx++]); }
                   else { newItems.push(allItems[i]); }
                 }
-                saveItems(newItems, renderItems);
+                saveItemsAndRender(newItems);
               }
             });
           }
@@ -238,7 +255,7 @@ async function renderItems() {
 function deleteItem(index) {
   loadItems((items) => {
     items.splice(index, 1);
-    saveItems(items, renderItems);
+    saveItemsAndRender(items);
   });
 }
 
@@ -265,7 +282,7 @@ function duplicateItem(index) {
     const clone = JSON.parse(JSON.stringify(original));
     clone.callName = generateUniqueCallName(original.callName, items);
     items.splice(index + 1, 0, clone);
-    saveItems(items, renderItems);
+    saveItemsAndRender(items);
   });
 }
 
@@ -273,7 +290,7 @@ function duplicateItem(index) {
 function toggleItemVisibility(index) {
   loadItems((items) => {
     items[index].hidden = !items[index].hidden;
-    saveItems(items, renderItems);
+    saveItemsAndRender(items);
   });
 }
 
@@ -349,7 +366,8 @@ function duplicateProfile() {
             item.profiles.push(newId);
           }
         });
-        saveItems(items, () => {
+        saveItems(items, (err) => {
+          if (err) { alert("Failed to save: " + (err.message || "Storage quota exceeded.")); return; }
           saveActiveProfile(newId, () => {
             renderProfileDropdown(() => renderItems());
           });
@@ -370,7 +388,8 @@ function deleteProfile() {
     saveProfiles(newProfiles, () => {
       loadItems((items) => {
         items.forEach(item => { if (item.profiles) { item.profiles = item.profiles.filter(id => id !== activeId); } });
-        saveItems(items, () => {
+        saveItems(items, (err) => {
+          if (err) { alert("Failed to save: " + (err.message || "Storage quota exceeded.")); return; }
           saveActiveProfile(newProfiles[0].id, () => {
             renderProfileDropdown(() => renderItems());
           });
@@ -631,29 +650,40 @@ function renderActionParamsFields(actionType, params = {}) {
     const chooseBtn = document.getElementById('param_imageslide_choosebtn');
     const listEl = document.getElementById('param_imageslide_list');
 
-    function addImagesFromFiles(files) {
+    function compressImage(dataUrl, maxWidth, maxHeight, quality) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > maxWidth || h > maxHeight) {
+            const ratio = Math.min(maxWidth / w, maxHeight / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+    }
+
+    async function addImagesFromFiles(files) {
       if (!files || files.length === 0) return;
-      const reader = new FileReader();
-      let idx = 0;
-      function readNext() {
-        if (idx >= files.length) {
-          renderThumbnails();
-          return;
-        }
-        const f = files[idx];
-        if (f.type && f.type.startsWith('image/')) {
-          reader.onload = function() {
-            window.imageSlideshowImages.push(reader.result);
-            idx++;
-            readNext();
-          };
+      for (const f of Array.from(files)) {
+        if (!f.type || !f.type.startsWith('image/')) continue;
+        const dataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
           reader.readAsDataURL(f);
-        } else {
-          idx++;
-          readNext();
-        }
+        });
+        const compressed = await compressImage(dataUrl, 1920, 1080, 0.8);
+        window.imageSlideshowImages.push(compressed);
       }
-      readNext();
+      renderThumbnails();
     }
 
     var activePreviewEl = null;
@@ -1143,7 +1173,11 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
       newItem.hidden = items[editIndex].hidden;
       items[editIndex] = newItem;
     }
-    saveItems(items, () => {
+    saveItems(items, (err) => {
+      if (err) {
+        alert("Failed to save: " + (err.message || "Storage quota exceeded. Try reducing image sizes or removing unused items."));
+        return;
+      }
       renderItems();
       closeModal();
     });
@@ -1186,7 +1220,7 @@ function migrateOldItems(items) {
 // On load, migrate old items if needed
 loadItems((items) => {
   if (migrateOldItems(items)) {
-    saveItems(items, renderItems);
+    saveItemsAndRender(items);
   }
 });
 
@@ -1237,9 +1271,15 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
             item.profiles = item.profiles.filter(id => id !== activeProfileId);
             return item.profiles.length > 0;
           });
-          saveItems(kept.concat(importedItems), () => { renderItems(); alert("Import successful! (replaced)"); });
+          saveItems(kept.concat(importedItems), (err) => {
+            if (err) { alert("Import failed: " + (err.message || "Storage quota exceeded.")); return; }
+            renderItems(); alert("Import successful! (replaced)");
+          });
         } else {
-          saveItems(allItems.concat(importedItems), () => { renderItems(); alert("Import successful! (merged)"); });
+          saveItems(allItems.concat(importedItems), (err) => {
+            if (err) { alert("Import failed: " + (err.message || "Storage quota exceeded.")); return; }
+            renderItems(); alert("Import successful! (merged)");
+          });
         }
       });
     } catch (error) { alert("Error parsing the file."); }

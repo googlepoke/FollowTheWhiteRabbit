@@ -1274,25 +1274,27 @@
 
   // Intercept right-click events.
   document.addEventListener("contextmenu", (e) => {
-    e.preventDefault(); // Prevent the default context menu
+    e.preventDefault();
 
-    // Request the active tab URL from the background script.
-    chrome.runtime.sendMessage({ action: "getActiveTabUrl" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Error retrieving active URL:", chrome.runtime.lastError.message || chrome.runtime.lastError);
-      }
-      const activeUrl = (response && response.activeUrl) ? response.activeUrl : "";
-      // Load the items from chrome.storage.local, then filter.
-      loadItems((items) => {
-        const filteredItems = filterItemsForCurrentUrl(activeUrl, items);
-        populateCustomMenu(filteredItems);
+    try {
+      chrome.runtime.sendMessage({ action: "getActiveTabUrl" }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn("Extension context error:", chrome.runtime.lastError.message);
+          return;
+        }
+        const activeUrl = (response && response.activeUrl) ? response.activeUrl : "";
+        loadItems((items) => {
+          const filteredItems = filterItemsForCurrentUrl(activeUrl, items);
+          populateCustomMenu(filteredItems);
 
-        // Position the custom menu at the mouse coordinates.
-        customMenu.style.top = e.clientY + "px";
-        customMenu.style.left = e.clientX + "px";
-        customMenu.style.display = "block";
+          customMenu.style.top = e.clientY + "px";
+          customMenu.style.left = e.clientX + "px";
+          customMenu.style.display = "block";
+        });
       });
-    });
+    } catch (ex) {
+      console.warn("Extension context invalidated, please reload the page.");
+    }
   });
 
   // Hide the custom menu when clicking anywhere else.
