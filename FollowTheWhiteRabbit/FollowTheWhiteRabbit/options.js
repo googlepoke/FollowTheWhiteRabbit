@@ -433,7 +433,13 @@ const urlInput = document.getElementById('url');
 
 function renderActionParamsFields(actionType, params = {}) {
   actionParamsContainer.innerHTML = '';
-  urlInput.disabled = actionType !== 'openUrl';
+  var openUrlFields = document.getElementById('openUrlFields');
+  var isOpenUrl = actionType === 'openUrl';
+  if (openUrlFields) {
+    openUrlFields.style.display = isOpenUrl ? '' : 'none';
+  }
+  urlInput.disabled = !isOpenUrl;
+  urlInput.required = isOpenUrl;
   if (actionType === 'alert') {
     actionParamsContainer.innerHTML = '<label>Alert Text:</label><input type="text" id="param_alert_text" class="form-control" value="' + (params.text || '') + '">';
   } else if (actionType === 'logToConsole') {
@@ -928,7 +934,7 @@ function openModal(mode, index) {
     document.getElementById('callName').value = '';
     document.getElementById('pkURL').value = '';
     urlInput.value = '';
-    document.getElementById('currentTab').checked = false;
+    document.getElementById('currentTab').checked = true;
     actionTypeInput.value = 'openUrl';
     renderActionParamsFields('openUrl');
     renderProfileCheckboxes([getActiveProfileId()]);

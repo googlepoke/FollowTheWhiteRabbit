@@ -99,12 +99,6 @@
         <label for="callName">Call Name:</label>
         <input type="text" id="callName" name="callName" maxlength="500" required>
         
-        <label for="url">URL:</label>
-        <input type="url" id="url" name="url" required>
-        
-        <label for="currentTab">Open in Current Tab:</label>
-        <input type="checkbox" id="currentTab" name="currentTab">
-        
         <label for="actionType">Action Type:</label>
         <select id="actionType" name="actionType" required>
           <option value="openUrl">Open URL</option>
@@ -122,6 +116,15 @@
           <option value="imageSlideshow">Image Slideshow</option>
         </select>
         <div id="actionParamsContainer"></div>
+        
+        <div id="openUrlFields">
+          <label for="url">URL:</label>
+          <input type="url" id="url" name="url" required>
+          
+          <label for="currentTab">Open in Current Tab:</label>
+          <input type="checkbox" id="currentTab" name="currentTab">
+        </div>
+        
         <div id="profileCheckboxesContainer" class="mb-3">
           <label class="fw-bold">Assign to Profiles:</label>
           <div id="profileCheckboxes" class="d-flex flex-wrap gap-2 mt-1"></div>
