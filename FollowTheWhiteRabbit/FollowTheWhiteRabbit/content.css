@@ -79,11 +79,11 @@
   height: 20px;
   margin-top: 2px;
   cursor: pointer;
-  accent-color: #0365D8;
+  accent-color: #006400;
 }
 
 .ifs-todo-checkbox:focus-visible {
-  outline: 2px solid rgba(3, 101, 216, 0.85);
+  outline: 2px solid rgba(0, 100, 0, 0.85);
   outline-offset: 2px;
 }
 

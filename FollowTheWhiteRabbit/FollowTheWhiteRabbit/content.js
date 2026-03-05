@@ -652,7 +652,7 @@
                 checkbox.style.height = '20px';
                 checkbox.style.marginTop = '2px';
                 checkbox.style.cursor = 'pointer';
-                checkbox.style.accentColor = '#0365D8';
+                checkbox.style.accentColor = '#006400';
                 checkbox.checked = savedStates[idx] === true;
 
                 // Create text element - anchor if URL exists, span otherwise
