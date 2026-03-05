@@ -1,8 +1,13 @@
 (function() {
   // --- Utility Functions ---
 
+  function isExtensionValid() {
+    try { return !!chrome.runtime && !!chrome.runtime.id; } catch (e) { return false; }
+  }
+
   // Asynchronously load items from chrome.storage.local, filtered by active profile.
   function loadItems(callback) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get(['ifsQuickCallItems', 'ifsActiveProfile'], (result) => {
       const items = result.ifsQuickCallItems || [];
       const activeProfile = result.ifsActiveProfile || '';
@@ -48,6 +53,7 @@
 
   // Load hover settings and apply styles on init.
   function initHoverStyles() {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([HOVER_SETTINGS_KEY], (result) => {
       const settings = result[HOVER_SETTINGS_KEY] || {
         hoverBgColor: DEFAULT_HOVER_BG,
@@ -58,7 +64,7 @@
   }
 
   // Listen for storage changes to update hover styles dynamically.
-  chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (isExtensionValid()) chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'local' && changes[HOVER_SETTINGS_KEY]) {
       applyHoverStyles(changes[HOVER_SETTINGS_KEY].newValue || {});
     }
@@ -77,6 +83,7 @@
 
   // Load todo state for a specific item
   function loadTodoState(storageKey, callback) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([TODO_STATES_KEY], (result) => {
       const allStates = result[TODO_STATES_KEY] || {};
       const state = allStates[storageKey] || {};
@@ -86,6 +93,7 @@
 
   // Save todo state for a specific item
   function saveTodoState(storageKey, stateObj) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([TODO_STATES_KEY], (result) => {
       const allStates = result[TODO_STATES_KEY] || {};
       allStates[storageKey] = stateObj;
@@ -103,6 +111,7 @@
 
   // Load note state for a specific item
   function loadNoteState(storageKey, callback) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([NOTE_STATES_KEY], (result) => {
       const allStates = result[NOTE_STATES_KEY] || {};
       const state = allStates[storageKey] || {};
@@ -112,6 +121,7 @@
 
   // Save note state for a specific item
   function saveNoteState(storageKey, stateObj) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([NOTE_STATES_KEY], (result) => {
       const allStates = result[NOTE_STATES_KEY] || {};
       allStates[storageKey] = stateObj;
@@ -701,11 +711,9 @@
                   textElement.style.lineHeight = '1.5';
                 }
 
-                // Apply strikethrough if checked
                 if (checkbox.checked) {
                   li.classList.add('ifs-todo-checked');
-                  textElement.style.textDecoration = 'line-through';
-                  textElement.style.opacity = '0.6';
+                  textElement.style.color = '#006400';
                 }
 
                 // Toggle handler
@@ -713,12 +721,10 @@
                   savedStates[idx] = checkbox.checked;
                   if (checkbox.checked) {
                     li.classList.add('ifs-todo-checked');
-                    textElement.style.textDecoration = 'line-through';
-                    textElement.style.opacity = '0.6';
+                    textElement.style.color = '#006400';
                   } else {
                     li.classList.remove('ifs-todo-checked');
-                    textElement.style.textDecoration = 'none';
-                    textElement.style.opacity = '1';
+                    textElement.style.color = todoFontColor;
                   }
                   saveTodoState(todoStorageKey, savedStates);
                 });
@@ -1272,14 +1278,28 @@
 
   // --- Event Listeners for the Custom RMB Menu ---
 
-  // Intercept right-click events.
+  function showReloadHint(x, y) {
+    var hint = document.createElement("div");
+    hint.style.cssText = "position:fixed;z-index:2147483647;padding:10px 14px;background:#333;color:#fff;font-size:13px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.3);white-space:nowrap;pointer-events:none;";
+    hint.textContent = "Extension was reloaded. Please refresh this page to use the menu.";
+    hint.style.left = Math.min(x, document.documentElement.clientWidth - 320) + "px";
+    hint.style.top = (y - 40) + "px";
+    document.body.appendChild(hint);
+    setTimeout(function() { if (hint.parentNode) hint.parentNode.removeChild(hint); }, 4000);
+  }
+
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
 
+    if (!isExtensionValid()) {
+      showReloadHint(e.clientX, e.clientY);
+      return;
+    }
     try {
       chrome.runtime.sendMessage({ action: "getActiveTabUrl" }, (response) => {
         if (chrome.runtime.lastError) {
           console.warn("Extension context error:", chrome.runtime.lastError.message);
+          showReloadHint(e.clientX, e.clientY);
           return;
         }
         const activeUrl = (response && response.activeUrl) ? response.activeUrl : "";
@@ -1293,7 +1313,7 @@
         });
       });
     } catch (ex) {
-      console.warn("Extension context invalidated, please reload the page.");
+      showReloadHint(e.clientX, e.clientY);
     }
   });
 
