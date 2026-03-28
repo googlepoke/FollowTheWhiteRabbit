@@ -15,29 +15,35 @@
 </head>
 <body>
   <div class="container py-3">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h1 class="mb-0">Follow the White Rabbit</h1>
-      <button type="button" id="btnOpenInTab" class="btn btn-sm btn-outline-secondary" title="Open in new tab for full window">Open in new tab</button>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h1 class="mb-0" data-i18n="app_title">Follow the White Rabbit</h1>
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="form-check form-switch mb-0 d-flex align-items-center">
+          <input class="form-check-input" type="checkbox" role="switch" id="toggleUiJapanese" aria-label="Japanese UI">
+          <label class="form-check-label ms-2 mb-0 user-select-none" for="toggleUiJapanese" data-i18n="lang_switch_label">日本語</label>
+        </div>
+        <button type="button" id="btnOpenInTab" class="btn btn-sm btn-outline-secondary" data-i18n="open_in_new_tab" data-i18n-title="open_in_new_tab_title">Open in new tab</button>
+      </div>
     </div>
     <div class="card mb-3" id="profileBar">
       <div class="card-body d-flex align-items-center gap-2 py-2 flex-wrap">
-        <label class="fw-bold mb-0">Profile:</label>
+        <label class="fw-bold mb-0" for="profileSelect" data-i18n="profile_colon">Profile:</label>
         <select id="profileSelect" class="form-select form-select-sm" style="max-width: 250px;"></select>
-        <button id="btnAddProfile" class="btn btn-sm btn-outline-primary" title="New Profile"><i class="bi bi-plus-lg"></i></button>
-        <button id="btnEditProfile" class="btn btn-sm btn-outline-secondary" title="Rename Profile"><i class="bi bi-pencil"></i></button>
-        <button id="btnDuplicateProfile" class="btn btn-sm btn-outline-secondary" title="Duplicate Profile"><i class="bi bi-copy"></i></button>
-        <button id="btnDeleteProfile" class="btn btn-sm btn-outline-danger" title="Delete Profile"><i class="bi bi-trash"></i></button>
+        <button type="button" id="btnAddProfile" class="btn btn-sm btn-outline-primary" data-i18n-title="tip_new_profile"><i class="bi bi-plus-lg"></i></button>
+        <button type="button" id="btnEditProfile" class="btn btn-sm btn-outline-secondary" data-i18n-title="tip_rename_profile"><i class="bi bi-pencil"></i></button>
+        <button type="button" id="btnDuplicateProfile" class="btn btn-sm btn-outline-secondary" data-i18n-title="tip_duplicate_profile"><i class="bi bi-copy"></i></button>
+        <button type="button" id="btnDeleteProfile" class="btn btn-sm btn-outline-danger" data-i18n-title="tip_delete_profile"><i class="bi bi-trash"></i></button>
       </div>
     </div>
     <div class="btn-group mb-3">
-      <button id="btnAdd" class="btn btn-primary">Add New Item</button>
-      <button id="btnExport" class="btn btn-secondary">Export Items</button>
+      <button type="button" id="btnAdd" class="btn btn-primary" data-i18n="add_new_item">Add New Item</button>
+      <button type="button" id="btnExport" class="btn btn-secondary" data-i18n="export_items">Export Items</button>
       <input type="file" id="fileInput" style="display: none;" accept=".json">
-      <button id="btnImport" class="btn btn-secondary">Import Items</button>
+      <button type="button" id="btnImport" class="btn btn-secondary" data-i18n="import_items">Import Items</button>
     </div>
     <div class="form-check mb-2">
       <input class="form-check-input" type="checkbox" value="" id="showAllLinks">
-      <label class="form-check-label" for="showAllLinks">
+      <label class="form-check-label" for="showAllLinks" data-i18n="show_all_links">
         Show all links
       </label>
     </div>
@@ -46,9 +52,9 @@
         <thead class="table-light sticky-top">
           <tr>
             <th scope="col"></th>
-            <th scope="col">Call Name</th>
-            <th scope="col">Profiles</th>
-            <th scope="col">Actions</th>
+            <th scope="col" data-i18n="table_call_name">Call Name</th>
+            <th scope="col" data-i18n="table_profiles">Profiles</th>
+            <th scope="col" data-i18n="table_actions">Actions</th>
           </tr>
         </thead>
         <tbody id="itemsBody">
@@ -58,30 +64,30 @@
     </div>
 
     <div class="card mb-3 mt-3">
-      <div class="card-header">Menu Appearance</div>
+      <div class="card-header" data-i18n="menu_appearance">Menu Appearance</div>
       <div class="card-body">
         <div class="row align-items-end">
           <div class="col-md-4">
-            <label for="hoverBgColor">Hover Background:</label>
+            <label for="hoverBgColor" data-i18n="hover_background">Hover Background:</label>
             <div class="input-group">
               <input type="color" id="hoverBgColor" class="form-control form-control-color" value="#0365D8">
               <input type="text" id="hoverBgHex" class="form-control" value="#0365D8" maxlength="7">
             </div>
           </div>
           <div class="col-md-4">
-            <label for="hoverTextColor">Hover Text Color:</label>
+            <label for="hoverTextColor" data-i18n="hover_text_color">Hover Text Color:</label>
             <div class="input-group">
               <input type="color" id="hoverTextColor" class="form-control form-control-color" value="#FFFFFF">
               <input type="text" id="hoverTextHex" class="form-control" value="#FFFFFF" maxlength="7">
             </div>
           </div>
           <div class="col-md-4">
-            <button id="btnResetColors" class="btn btn-outline-secondary">Reset to Default</button>
+            <button type="button" id="btnResetColors" class="btn btn-outline-secondary" data-i18n="reset_to_default">Reset to Default</button>
           </div>
         </div>
         <div class="row align-items-end mt-3">
           <div class="col-md-4">
-            <label for="menuFontSize">Font Size:</label>
+            <label for="menuFontSize" data-i18n="font_size">Font Size:</label>
             <select id="menuFontSize" class="form-control">
               <option value="8">8px</option>
               <option value="10">10px</option>
@@ -96,7 +102,7 @@
             </select>
           </div>
           <div class="col-md-4">
-            <label for="menuFontFamily">Font Type:</label>
+            <label for="menuFontFamily" data-i18n="font_type">Font Type:</label>
             <select id="menuFontFamily" class="form-control">
               <option value="Inter">Inter</option>
               <option value="Roboto">Roboto</option>
@@ -124,44 +130,44 @@
       <span class="close">&times;</span>
       <h2 id="modalTitle">Add New Item</h2>
       <form id="itemForm">
-        <label for="pkURL">Primary Key URL:</label>
+        <label for="pkURL" data-i18n="label_primary_key_url">Primary Key URL:</label>
         <input type="text" id="pkURL" name="pkURL" required>
         
-        <label for="callName">Call Name:</label>
+        <label for="callName" data-i18n="label_call_name">Call Name:</label>
         <input type="text" id="callName" name="callName" maxlength="500" required>
         
-        <label for="actionType">Action Type:</label>
+        <label for="actionType" data-i18n="label_action_type">Action Type:</label>
         <select id="actionType" name="actionType" required>
-          <option value="openUrl">Open URL</option>
-          <option value="alert">Show Alert</option>
-          <option value="logToConsole">Log to Console</option>
-          <option value="injectBanner">Inject Banner/Message</option>
-          <option value="customHtmlModal">Display Custom HTML Modal</option>
-          <option value="richTextModal">Rich Text Modal</option>
-          <option value="functionCall">Function Call</option>
-          <option value="countdownClock">Countdown Clock</option>
-          <option value="todoList">To Do List</option>
-          <option value="note">Note</option>
-          <option value="markdown">Markdown</option>
-          <option value="publishedPageUrl">Published Page URL</option>
-          <option value="imageSlideshow">Image Slideshow</option>
+          <option value="openUrl" data-i18n="action_open_url">Open URL</option>
+          <option value="alert" data-i18n="action_show_alert">Show Alert</option>
+          <option value="logToConsole" data-i18n="action_log_console">Log to Console</option>
+          <option value="injectBanner" data-i18n="action_inject_banner">Inject Banner/Message</option>
+          <option value="customHtmlModal" data-i18n="action_custom_html_modal">Display Custom HTML Modal</option>
+          <option value="richTextModal" data-i18n="action_rich_text_modal">Rich Text Modal</option>
+          <option value="functionCall" data-i18n="action_function_call">Function Call</option>
+          <option value="countdownClock" data-i18n="action_countdown_clock">Countdown Clock</option>
+          <option value="todoList" data-i18n="action_todo_list">To Do List</option>
+          <option value="note" data-i18n="action_note">Note</option>
+          <option value="markdown" data-i18n="action_markdown">Markdown</option>
+          <option value="publishedPageUrl" data-i18n="action_published_page_url">Published Page URL</option>
+          <option value="imageSlideshow" data-i18n="action_image_slideshow">Image Slideshow</option>
         </select>
         <div id="actionParamsContainer"></div>
         
         <div id="openUrlFields">
-          <label for="url">URL:</label>
+          <label for="url" data-i18n="label_url">URL:</label>
           <input type="url" id="url" name="url" required>
           
-          <label for="currentTab">Open in Current Tab:</label>
+          <label for="currentTab" data-i18n="label_open_current_tab">Open in Current Tab:</label>
           <input type="checkbox" id="currentTab" name="currentTab">
         </div>
         
         <div id="profileCheckboxesContainer" class="mb-3">
-          <label class="fw-bold">Assign to Profiles:</label>
+          <label class="fw-bold" data-i18n="assign_to_profiles">Assign to Profiles:</label>
           <div id="profileCheckboxes" class="d-flex flex-wrap gap-2 mt-1"></div>
         </div>
         <input type="hidden" id="editIndex">
-        <button type="submit">Save</button>
+        <button type="submit" data-i18n="save">Save</button>
       </form>
     </div>
   </div>
@@ -170,6 +176,7 @@
   <script src="Sortable.min.js"></script>
   <!-- Quill.js JavaScript -->
   <script src="quill.min.js"></script>
+  <script src="i18n-options.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

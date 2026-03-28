@@ -1,5 +1,23 @@
 // options.js
 
+const IFS_UI_JAPANESE_KEY = 'ifsUiJapanese';
+
+function t(key) {
+  return typeof OptionsI18n !== 'undefined' ? OptionsI18n.t(key) : key;
+}
+
+function applyPageI18n() {
+  if (typeof OptionsI18n !== 'undefined') OptionsI18n.apply();
+}
+
+function escapeAttr(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // Define a storage key for the list items.
 const STORAGE_KEY = 'ifsQuickCallItems';
 
@@ -127,7 +145,7 @@ function saveItems(items, callback) {
 function saveItemsAndRender(items) {
   saveItems(items, (err) => {
     if (err) {
-      alert("Failed to save: " + (err.message || "Storage quota exceeded. Try reducing image sizes or removing unused items."));
+      alert(t('alert_save_failed') + (err.message || t('alert_storage_quota')));
       return;
     }
     renderItems();
@@ -259,33 +277,33 @@ async function renderItems() {
         const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'btn btn-sm btn-outline-primary me-2';
-      editBtn.title = 'Edit';
-      editBtn.setAttribute('aria-label', 'Edit');
+      editBtn.title = t('tooltip_edit');
+      editBtn.setAttribute('aria-label', t('tooltip_edit'));
       editBtn.innerHTML = '<i class="bi bi-pencil" aria-hidden="true"></i>';
       editBtn.onclick = () => openModal('edit', items.indexOf(item));
       tdActions.appendChild(editBtn);
       const duplicateBtn = document.createElement('button');
       duplicateBtn.type = 'button';
       duplicateBtn.className = 'btn btn-sm btn-outline-secondary me-2';
-      duplicateBtn.title = 'Duplicate';
-      duplicateBtn.setAttribute('aria-label', 'Duplicate');
+      duplicateBtn.title = t('tooltip_duplicate');
+      duplicateBtn.setAttribute('aria-label', t('tooltip_duplicate'));
       duplicateBtn.innerHTML = '<i class="bi bi-copy" aria-hidden="true"></i>';
       duplicateBtn.onclick = () => duplicateItem(items.indexOf(item));
       tdActions.appendChild(duplicateBtn);
       const toggleBtn = document.createElement('button');
       toggleBtn.innerHTML = item.hidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
       toggleBtn.className = 'btn btn-sm btn-outline-secondary me-2';
-      toggleBtn.title = item.hidden ? 'Show in menu' : 'Hide from menu';
+      toggleBtn.title = item.hidden ? t('tooltip_show_in_menu') : t('tooltip_hide_from_menu');
       toggleBtn.onclick = () => toggleItemVisibility(items.indexOf(item));
       tdActions.appendChild(toggleBtn);
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'btn btn-sm btn-outline-danger';
-      deleteBtn.title = 'Delete';
-      deleteBtn.setAttribute('aria-label', 'Delete');
+      deleteBtn.title = t('tooltip_delete');
+      deleteBtn.setAttribute('aria-label', t('tooltip_delete'));
       deleteBtn.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
       deleteBtn.onclick = () => {
-        if (confirm('Are you sure you want to delete this item?')) {
+        if (confirm(t('confirm_delete_item'))) {
           deleteItem(items.indexOf(item));
         }
       };
@@ -408,7 +426,7 @@ function getActiveProfileId() {
 }
 
 function addProfile() {
-  const name = prompt('Enter new profile name:');
+  const name = prompt(t('prompt_new_profile'));
   if (!name || !name.trim()) return;
   loadProfiles((profiles) => {
     const newProfile = { id: generateProfileId(), name: name.trim(), menuAppearance: getDefaultHoverSettings() };
@@ -430,7 +448,7 @@ function editProfile() {
   loadProfiles((profiles) => {
     const profile = profiles.find(p => p.id === activeId);
     if (!profile) return;
-    const newName = prompt('Rename profile:', profile.name);
+    const newName = prompt(t('prompt_rename_profile'), profile.name);
     if (!newName || !newName.trim()) return;
     profile.name = newName.trim();
     saveProfiles(profiles, () => {
@@ -460,7 +478,7 @@ function duplicateProfile() {
           }
         });
         saveItems(items, (err) => {
-          if (err) { alert("Failed to save: " + (err.message || "Storage quota exceeded.")); return; }
+          if (err) { alert(t('alert_save_failed') + (err.message || t('alert_storage_quota_short'))); return; }
           saveActiveProfile(newId, () => {
             renderProfileDropdown(() => {
               renderItems();
@@ -477,9 +495,9 @@ function deleteProfile() {
   const activeId = getActiveProfileId();
   if (!activeId) return;
   loadProfiles((profiles) => {
-    if (profiles.length <= 1) { alert('Cannot delete the last profile.'); return; }
+    if (profiles.length <= 1) { alert(t('alert_cannot_delete_last_profile')); return; }
     const profile = profiles.find(p => p.id === activeId);
-    if (!confirm('Delete profile "' + (profile ? profile.name : '') + '"? Items will remain but lose this profile assignment.')) return;
+    if (!confirm(t('confirm_delete_profile_prefix') + (profile ? profile.name : '') + t('confirm_delete_profile_suffix'))) return;
     const newProfiles = profiles.filter(p => p.id !== activeId);
     saveProfiles(newProfiles, () => {
       // Remove appearance settings for deleted profile
@@ -487,7 +505,7 @@ function deleteProfile() {
       loadItems((items) => {
         items.forEach(item => { if (item.profiles) { item.profiles = item.profiles.filter(id => id !== activeId); } });
         saveItems(items, (err) => {
-          if (err) { alert("Failed to save: " + (err.message || "Storage quota exceeded.")); return; }
+          if (err) { alert(t('alert_save_failed') + (err.message || t('alert_storage_quota_short'))); return; }
           saveActiveProfile(newProfiles[0].id, () => {
             renderProfileDropdown(() => {
               renderItems();
@@ -561,13 +579,13 @@ function renderActionParamsFields(actionType, params = {}) {
   urlInput.disabled = !isOpenUrl;
   urlInput.required = isOpenUrl;
   if (actionType === 'alert') {
-    actionParamsContainer.innerHTML = '<label>Alert Text:</label><input type="text" id="param_alert_text" class="form-control" value="' + (params.text || '') + '">';
+    actionParamsContainer.innerHTML = '<label>' + t('label_alert_text') + '</label><input type="text" id="param_alert_text" class="form-control" value="' + (params.text || '') + '">';
   } else if (actionType === 'logToConsole') {
-    actionParamsContainer.innerHTML = '<label>Console Message:</label><input type="text" id="param_console_message" class="form-control" value="' + (params.message || '') + '">';
+    actionParamsContainer.innerHTML = '<label>' + t('label_console_message') + '</label><input type="text" id="param_console_message" class="form-control" value="' + (params.message || '') + '">';
   } else if (actionType === 'injectBanner') {
-    actionParamsContainer.innerHTML = '<label>Banner Text:</label><input type="text" id="param_banner_text" class="form-control" value="' + (params.text || '') + '">';
+    actionParamsContainer.innerHTML = '<label>' + t('label_banner_text') + '</label><input type="text" id="param_banner_text" class="form-control" value="' + (params.text || '') + '">';
   } else if (actionType === 'customHtmlModal') {
-    actionParamsContainer.innerHTML = '<label>Custom HTML:</label><textarea id="param_html" class="form-control" rows="4">' + (params.html || '') + '</textarea>';
+    actionParamsContainer.innerHTML = '<label>' + t('label_custom_html') + '</label><textarea id="param_html" class="form-control" rows="4">' + (params.html || '') + '</textarea>';
   } else if (actionType === 'richTextModal') {
     const fontOptions = [
       { value: 'Inter', label: 'Inter' },
@@ -585,33 +603,34 @@ function renderActionParamsFields(actionType, params = {}) {
       `<option value="${font.value}" ${(params.fontFamily || 'Inter') === font.value ? 'selected' : ''}>${font.label}</option>`
     ).join('');
 
+    const richtextDefaultTitle = escapeAttr(params.title || t('default_rich_modal_title'));
     actionParamsContainer.innerHTML = `
       <div class="row mb-3">
         <div class="col-md-6">
-          <label>Modal Title:</label>
-          <input type="text" id="param_richtext_title" class="form-control" value="${params.title || 'Rich Text Modal'}" placeholder="Modal Title">
+          <label>${t('label_modal_title')}</label>
+          <input type="text" id="param_richtext_title" class="form-control" value="${richtextDefaultTitle}" placeholder="${escapeAttr(t('ph_modal_title'))}">
         </div>
         <div class="col-md-6">
-          <label>Font Family:</label>
+          <label>${t('label_font_family')}</label>
           <select id="param_richtext_fontfamily" class="form-control">${fontSelectOptions}</select>
         </div>
       </div>
       <div class="row mb-3">
         <div class="col-md-4">
-          <label>Font Size (px):</label>
+          <label>${t('label_font_size_px')}</label>
           <input type="number" id="param_richtext_fontsize" class="form-control" min="8" max="72" value="${params.fontSize || 16}">
         </div>
         <div class="col-md-4">
-          <label>Text Color:</label>
+          <label>${t('label_text_color')}</label>
           <input type="color" id="param_richtext_color" class="form-control form-control-color" value="${params.textColor || '#333333'}">
         </div>
         <div class="col-md-4">
-          <label>Background Color:</label>
+          <label>${t('label_background_color')}</label>
           <input type="color" id="param_richtext_bgcolor" class="form-control form-control-color" value="${params.backgroundColor || '#ffffff'}">
         </div>
       </div>
       <div class="mb-3">
-        <label>Content:</label>
+        <label>${t('label_content')}</label>
         <div id="richtext-editor" style="height: 200px; border: 1px solid #ced4da; border-radius: 0.375rem;"></div>
         <input type="hidden" id="param_richtext_content" value="">
       </div>
@@ -619,9 +638,9 @@ function renderActionParamsFields(actionType, params = {}) {
     
     // Note: Quill editor will be initialized separately to avoid conflicts
   } else if (actionType === 'functionCall') {
-    actionParamsContainer.innerHTML = '<label>Function Name:</label><input type="text" id="param_function_name" class="form-control" value="' + (params.functionName || '') + '" placeholder="e.g., goBack"><label>Function Type:</label><select id="param_function_type" class="form-control"><option value="complete" ' + (params.functionType === 'complete' ? 'selected' : '') + '>Complete Definition</option><option value="body" ' + (params.functionType === 'body' ? 'selected' : '') + '>Function Body Only</option></select><label>Function Code:</label><textarea id="param_function_code" class="form-control" rows="6" placeholder="Enter your JavaScript code here...">' + (params.functionCode || '') + '</textarea>';
+    actionParamsContainer.innerHTML = '<label>' + t('label_function_name') + '</label><input type="text" id="param_function_name" class="form-control" value="' + (params.functionName || '') + '" placeholder="' + t('ph_function_name').replace(/"/g, '&quot;') + '"><label>' + t('label_function_type') + '</label><select id="param_function_type" class="form-control"><option value="complete" ' + (params.functionType === 'complete' ? 'selected' : '') + '>' + t('opt_function_complete') + '</option><option value="body" ' + (params.functionType === 'body' ? 'selected' : '') + '>' + t('opt_function_body') + '</option></select><label>' + t('label_function_code') + '</label><textarea id="param_function_code" class="form-control" rows="6" placeholder="' + t('ph_function_code').replace(/"/g, '&quot;') + '">' + (params.functionCode || '') + '</textarea>';
   } else if (actionType === 'countdownClock') {
-    actionParamsContainer.innerHTML = '<label>Countdown Duration (minutes):</label><input type="number" id="param_countdown_minutes" class="form-control" min="1" value="' + (params.minutes || 1) + '"><label>Label/Message (optional):</label><input type="text" id="param_countdown_label" class="form-control" value="' + (params.label || '') + '">';
+    actionParamsContainer.innerHTML = '<label>' + t('label_countdown_minutes') + '</label><input type="number" id="param_countdown_minutes" class="form-control" min="1" value="' + (params.minutes || 1) + '"><label>' + t('label_countdown_label') + '</label><input type="text" id="param_countdown_label" class="form-control" value="' + (params.label || '') + '">';
   } else if (actionType === 'todoList') {
     // Normalize items to {label, url?} format, then convert to Label|URL text for editing
     let itemsText = '';
@@ -634,19 +653,20 @@ function renderActionParamsFields(actionType, params = {}) {
         return entry.url ? `[${entry.label}](${entry.url})` : entry.label;
       }).join('\n');
     }
+    const todoPlaceholderAttr = t('ph_todo_items').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/\n/g, '&#10;');
     actionParamsContainer.innerHTML = `
       <div class="mb-3">
-        <label>To Do Items (one per line):</label>
-        <textarea id="param_todo_items" class="form-control" rows="6" placeholder="Enter one item per line...&#10;Use [Label](URL) or Label|URL for clickable links">${itemsText}</textarea>
-        <small class="text-muted">Format: <code>Label</code> or <code>[Label](https://example.com)</code> or <code>Label|https://example.com</code></small>
+        <label>${t('label_todo_items')}</label>
+        <textarea id="param_todo_items" class="form-control" rows="6" placeholder="${todoPlaceholderAttr}">${itemsText}</textarea>
+        <small class="text-muted">${t('hint_todo_format')}<code>Label</code> or <code>[Label](https://example.com)</code> or <code>Label|https://example.com</code></small>
       </div>
       <div class="row mb-3">
         <div class="col-md-6">
-          <label>Font Size (px):</label>
+          <label>${t('label_font_size_px')}</label>
           <input type="number" id="param_todo_fontsize" class="form-control" min="8" max="72" value="${params.fontSize || 16}">
         </div>
         <div class="col-md-6">
-          <label>Font Color:</label>
+          <label>${t('label_font_color')}</label>
           <div class="input-group">
             <input type="color" id="param_todo_fontcolor" class="form-control form-control-color" value="${params.fontColor || '#333333'}">
             <input type="text" id="param_todo_fontcolor_hex" class="form-control" value="${params.fontColor || '#333333'}" maxlength="7">
@@ -671,32 +691,33 @@ function renderActionParamsFields(actionType, params = {}) {
     }
   } else if (actionType === 'note') {
     const colorPresets = [
-      { value: '#FFEB3B', label: 'Yellow' },
-      { value: '#F48FB1', label: 'Pink' },
-      { value: '#81D4FA', label: 'Blue' },
-      { value: '#A5D6A7', label: 'Green' },
-      { value: '#FFCC80', label: 'Orange' },
-      { value: '#E1BEE7', label: 'Purple' }
+      { value: '#FFEB3B', label: t('color_yellow') },
+      { value: '#F48FB1', label: t('color_pink') },
+      { value: '#81D4FA', label: t('color_blue') },
+      { value: '#A5D6A7', label: t('color_green') },
+      { value: '#FFCC80', label: t('color_orange') },
+      { value: '#E1BEE7', label: t('color_purple') }
     ];
     
     let colorSelectOptions = colorPresets.map(color => 
       `<option value="${color.value}" ${(params.defaultColor || '#FFEB3B') === color.value ? 'selected' : ''}>${color.label}</option>`
     ).join('');
 
+    const notePh = t('ph_note_default').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     actionParamsContainer.innerHTML = `
       <div class="row mb-3">
         <div class="col-md-6">
-          <label>Default Color:</label>
+          <label>${t('label_default_color')}</label>
           <select id="param_note_color" class="form-control">${colorSelectOptions}</select>
         </div>
         <div class="col-md-6">
-          <label>Color Preview:</label>
+          <label>${t('label_color_preview')}</label>
           <div id="param_note_color_preview" style="width: 100%; height: 38px; border-radius: 4px; border: 1px solid #ced4da; background-color: ${params.defaultColor || '#FFEB3B'};"></div>
         </div>
       </div>
       <div class="mb-3">
-        <label>Default Text (optional):</label>
-        <textarea id="param_note_text" class="form-control" rows="3" placeholder="Enter default text for the sticky note...">${params.defaultText || ''}</textarea>
+        <label>${t('label_default_text_optional')}</label>
+        <textarea id="param_note_text" class="form-control" rows="3" placeholder="${notePh}">${params.defaultText || ''}</textarea>
       </div>
     `;
 
@@ -709,41 +730,45 @@ function renderActionParamsFields(actionType, params = {}) {
       });
     }
   } else if (actionType === 'markdown') {
+    const mdPh = t('ph_markdown').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     actionParamsContainer.innerHTML = `
       <div class="mb-3">
-        <label>Markdown Content:</label>
+        <label>${t('label_markdown_content')}</label>
         <textarea id="param_markdown_content" class="form-control" rows="10"
-          placeholder="Paste your markdown here..." style="font-family: monospace; font-size: 13px;">${(params.markdownText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+          placeholder="${mdPh}" style="font-family: monospace; font-size: 13px;">${(params.markdownText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
       </div>
     `;
   } else if (actionType === 'publishedPageUrl') {
+    const pubPh = t('ph_published_url').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     actionParamsContainer.innerHTML = `
       <div class="mb-3">
-        <label>Published Page URL:</label>
+        <label>${t('label_published_page_url')}</label>
         <input type="url" id="param_published_url" class="form-control"
-          placeholder="https://mysite.notion.site/..." value="${params.pageUrl || ''}">
-        <small class="text-muted">Paste the full URL of the published page (e.g., Notion, Confluence)</small>
+          placeholder="${pubPh}" value="${escapeAttr(params.pageUrl || '')}">
+        <small class="text-muted">${t('help_published_url')}</small>
       </div>
       <div class="form-check mt-2">
         <input type="checkbox" class="form-check-input" id="param_published_incognito" ${params.incognito ? 'checked' : ''}>
-        <label class="form-check-label" for="param_published_incognito">Open in Incognito window</label>
+        <label class="form-check-label" for="param_published_incognito">${t('label_open_incognito')}</label>
       </div>
     `;
   } else if (actionType === 'imageSlideshow') {
     const images = params.images && Array.isArray(params.images) ? params.images : [];
     window.imageSlideshowImages = [...images];
+    const slideDrop = t('slideshow_dropzone').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const slideHelp = t('slideshow_help').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
     actionParamsContainer.innerHTML = `
       <div class="mb-3">
-        <label>Slideshow Images:</label>
+        <label>${t('label_slideshow_images')}</label>
         <div id="param_imageslide_dropzone" tabindex="0" class="border border-2 border-dashed rounded p-3 mb-2 text-center" style="min-height: 80px; cursor: pointer; background: #f8f9fa; outline: none;">
-          <span class="text-muted">Paste or drop images here (click to focus, then Ctrl+V)</span>
+          <span class="text-muted">${slideDrop}</span>
         </div>
         <div class="d-flex gap-2 mb-2">
           <input type="file" id="param_imageslide_fileinput" accept="image/*" multiple style="display: none;">
-          <button type="button" id="param_imageslide_choosebtn" class="btn btn-sm btn-outline-primary">Choose files...</button>
+          <button type="button" id="param_imageslide_choosebtn" class="btn btn-sm btn-outline-primary">${t('slideshow_choose_files')}</button>
         </div>
         <div id="param_imageslide_list" class="d-flex flex-wrap gap-2 mt-2"></div>
-        <small class="text-muted d-block mt-1">Add images via paste (Ctrl+V), drag-and-drop, or file picker. Order = slide order.</small>
+        <small class="text-muted d-block mt-1">${slideHelp}</small>
       </div>
     `;
     const dropZone = document.getElementById('param_imageslide_dropzone');
@@ -998,7 +1023,7 @@ function initializeRichTextEditor(existingParams = {}) {
       
       const quill = new Quill('#richtext-editor', {
         theme: 'snow',
-        placeholder: 'Click here to start typing your rich text content...',
+        placeholder: t('quill_placeholder'),
         modules: {
           toolbar: [
             [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
@@ -1060,7 +1085,7 @@ function openModal(mode, index) {
   const modalTitle = document.getElementById('modalTitle');
   const editIndexInput = document.getElementById('editIndex');
   if (mode === 'add') {
-    modalTitle.textContent = 'Add New Item';
+    modalTitle.textContent = t('modal_add_item');
     editIndexInput.value = '';
     document.getElementById('callName').value = '';
     document.getElementById('pkURL').value = '';
@@ -1077,7 +1102,7 @@ function openModal(mode, index) {
       }
     });
   } else if (mode === 'edit') {
-    modalTitle.textContent = 'Edit Item';
+    modalTitle.textContent = t('modal_edit_item');
     loadItems((items) => {
       const item = items[index];
       editIndexInput.value = index;
@@ -1204,33 +1229,33 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
   }
   const editIndex = document.getElementById('editIndex').value;
   if (!pkURL || !callName || (actionType === 'openUrl' && !url)) {
-    alert("Primary Key URL, Call Name, and URL (for Open URL) are required!");
+    alert(t('alert_pk_required'));
     return;
   }
   if (actionType === 'openUrl') {
     const urlRegex = /^(https?:\/\/)[^\s$.?#].[^"]*$/gm;
     if (!urlRegex.test(url)) {
-      alert("Please enter a valid URL");
+      alert(t('alert_valid_url'));
       return;
     }
   }
   if (actionType === 'countdownClock' && (!actionParams.minutes || actionParams.minutes < 1)) {
-    alert('Please enter a valid countdown duration (at least 1 minute).');
+    alert(t('alert_countdown_duration'));
     return;
   }
   if (actionType === 'functionCall') {
     if (!actionParams.functionName) {
-      alert('Please enter a function name.');
+      alert(t('alert_function_name'));
       return;
     }
     if (!actionParams.functionCode.trim()) {
-      alert('Please enter function code.');
+      alert(t('alert_function_code'));
       return;
     }
     // Basic validation - check for obviously invalid syntax patterns
     const code = actionParams.functionCode.trim();
     if (code.includes('</script>') || code.includes('<script')) {
-      alert('Function code cannot contain script tags.');
+      alert(t('alert_no_script_tags'));
       return;
     }
     // Note: Full syntax validation is skipped due to CSP restrictions
@@ -1238,32 +1263,32 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
   }
   if (actionType === 'todoList') {
     if (!actionParams.items || actionParams.items.length === 0) {
-      alert('Please enter at least one To Do item.');
+      alert(t('alert_todo_one_item'));
       return;
     }
     // Validate URLs if provided
     for (const item of actionParams.items) {
       if (item.url && !item.url.match(/^https?:\/\/.+/)) {
-        alert(`Invalid URL for "${item.label}". URLs must start with http:// or https://`);
+        alert(t('alert_invalid_url_for').replace('{label}', item.label));
         return;
       }
     }
   }
   if (actionType === 'publishedPageUrl') {
     if (!actionParams.pageUrl || !actionParams.pageUrl.match(/^https?:\/\/.+/)) {
-      alert('Please enter a valid Published Page URL starting with http:// or https://');
+      alert(t('alert_published_url'));
       return;
     }
   }
   if (actionType === 'imageSlideshow') {
     if (!actionParams.images || actionParams.images.length === 0) {
-      alert('Please add at least one image to the slideshow.');
+      alert(t('alert_slideshow_image'));
       return;
     }
   }
   const selectedProfiles = getSelectedProfileIds();
   if (selectedProfiles.length === 0) {
-    alert('Please assign the item to at least one profile.');
+    alert(t('alert_assign_profile'));
     return;
   }
   const newItem = { pkURL, callName, url, currentTab, actionType, actionParams, profiles: selectedProfiles };
@@ -1276,7 +1301,7 @@ document.getElementById('itemForm').addEventListener('submit', function(e) {
     }
     saveItems(items, (err) => {
       if (err) {
-        alert("Failed to save: " + (err.message || "Storage quota exceeded. Try reducing image sizes or removing unused items."));
+        alert(t('alert_save_failed') + (err.message || t('alert_storage_quota')));
         return;
       }
       renderItems();
@@ -1318,12 +1343,7 @@ function migrateOldItems(items) {
   return migrated;
 }
 
-// On load, migrate old items if needed
-loadItems((items) => {
-  if (migrateOldItems(items)) {
-    saveItemsAndRender(items);
-  }
-});
+// On load, migrate old items if needed (runs after UI language is loaded; see DOMContentLoaded)
 
 // Export items and menu appearance for the active profile as a JSON file.
 document.getElementById('btnExport').addEventListener('click', function() {
@@ -1374,27 +1394,27 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
         importedItems = parsed.items;
         if (parsed.menuAppearance) importedMenu = normalizeMenuAppearance(parsed.menuAppearance);
       } else {
-        alert("Invalid file format.");
+        alert(t('alert_invalid_file'));
         return;
       }
       const activeProfileId = getActiveProfileId();
-      const doReplace = confirm("Replace all items in this profile?\n\nOK = Replace (remove existing, add imported)\nCancel = Merge (keep existing, add imported)");
+      const doReplace = confirm(t('confirm_import_replace'));
       loadItems((allItems) => {
         importedItems.forEach(item => {
           if (!item.profiles || !Array.isArray(item.profiles)) item.profiles = [];
           if (activeProfileId && !item.profiles.includes(activeProfileId)) item.profiles.push(activeProfileId);
         });
         const finishImport = (err) => {
-          if (err) { alert("Import failed: " + (err.message || "Storage quota exceeded.")); return; }
+          if (err) { alert(t('alert_import_failed') + (err.message || t('alert_storage_quota_short'))); return; }
           if (importedMenu && activeProfileId) {
             saveHoverSettings(activeProfileId, importedMenu, () => {
               renderItems();
               initHoverSettings();
-              alert("Import successful!" + (doReplace ? " (replaced)" : " (merged)") + " Menu appearance updated.");
+              alert((doReplace ? t('alert_import_success_replaced') : t('alert_import_success_merged')) + t('alert_import_menu_updated'));
             });
           } else {
             renderItems();
-            alert("Import successful!" + (doReplace ? " (replaced)" : " (merged)"));
+            alert(doReplace ? t('alert_import_success_replaced') : t('alert_import_success_merged'));
           }
         };
         if (doReplace) {
@@ -1408,7 +1428,7 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
           saveItems(allItems.concat(importedItems), finishImport);
         }
       });
-    } catch (error) { alert("Error parsing the file."); }
+    } catch (error) { alert(t('alert_parse_error')); }
   };
   reader.readAsText(file);
   this.value = '';
@@ -1518,11 +1538,39 @@ function initHoverSettings() {
 
 // Initial render with profile migration
 document.addEventListener('DOMContentLoaded', function() {
-  migrateToProfiles(() => {
-    ensureMenuAppearanceOnProfiles(() => {
-      renderProfileDropdown(() => {
+  const toggleJa = document.getElementById('toggleUiJapanese');
+  if (toggleJa) {
+    toggleJa.addEventListener('change', function() {
+      chrome.storage.local.set({ [IFS_UI_JAPANESE_KEY]: this.checked }, () => {
+        if (typeof OptionsI18n !== 'undefined') OptionsI18n.setJapanese(this.checked);
+        applyPageI18n();
         renderItems();
-        initHoverSettings();
+        toggleJa.setAttribute('aria-label', t('lang_switch_label'));
+      });
+    });
+  }
+
+  chrome.storage.local.get([IFS_UI_JAPANESE_KEY], function(res) {
+    const ja = !!res[IFS_UI_JAPANESE_KEY];
+    if (typeof OptionsI18n !== 'undefined') OptionsI18n.setJapanese(ja);
+    if (toggleJa) {
+      toggleJa.checked = ja;
+      toggleJa.setAttribute('aria-label', t('lang_switch_label'));
+    }
+    applyPageI18n();
+
+    loadItems((items) => {
+      if (migrateOldItems(items)) {
+        saveItemsAndRender(items);
+      }
+    });
+
+    migrateToProfiles(() => {
+      ensureMenuAppearanceOnProfiles(() => {
+        renderProfileDropdown(() => {
+          renderItems();
+          initHoverSettings();
+        });
       });
     });
   });
