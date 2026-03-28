@@ -13,6 +13,7 @@
   width: fit-content;
   padding: 4px 0;
 }
+/* Note: font-family and font-size above are defaults; overridden dynamically by ifs-hover-styles per profile */
 
 .custom-context-menu ul {
   list-style: none;

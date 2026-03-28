@@ -22,11 +22,24 @@
   const HOVER_SETTINGS_KEY = 'ifsHoverSettings';
   const DEFAULT_HOVER_BG = '#0365D8';
   const DEFAULT_HOVER_TEXT = '#FFFFFF';
+  const DEFAULT_FONT_SIZE = '12';
+  const DEFAULT_FONT_FAMILY = 'Open Sans';
+
+  function getDefaultHoverSettings() {
+    return {
+      hoverBgColor: DEFAULT_HOVER_BG,
+      hoverTextColor: DEFAULT_HOVER_TEXT,
+      fontSize: DEFAULT_FONT_SIZE,
+      fontFamily: DEFAULT_FONT_FAMILY
+    };
+  }
 
   // Inject dynamic hover styles based on saved settings.
   function applyHoverStyles(settings) {
     const bgColor = settings.hoverBgColor || DEFAULT_HOVER_BG;
     const textColor = settings.hoverTextColor || DEFAULT_HOVER_TEXT;
+    const fontSize = settings.fontSize || DEFAULT_FONT_SIZE;
+    const fontFamily = settings.fontFamily || DEFAULT_FONT_FAMILY;
 
     // Remove existing dynamic style if present
     const existingStyle = document.getElementById('ifs-hover-styles');
@@ -38,6 +51,10 @@
     const style = document.createElement('style');
     style.id = 'ifs-hover-styles';
     style.textContent = `
+      .custom-context-menu {
+        font-family: '${fontFamily}', Arial, sans-serif !important;
+        font-size: ${fontSize}px !important;
+      }
       .custom-context-menu li:hover,
       .ifs-todo-item:hover {
         background-color: ${bgColor} !important;
@@ -51,22 +68,51 @@
     document.head.appendChild(style);
   }
 
+  // Load hover settings for active profile and apply styles (profile.menuAppearance first, then legacy keys).
+  function loadProfileHoverSettings(callback) {
+    if (!isExtensionValid()) return;
+    chrome.storage.local.get(['ifsActiveProfile', 'ifsProfiles'], (result) => {
+      const profileId = result.ifsActiveProfile || '';
+      const profiles = result.ifsProfiles || [];
+      const prof = profileId ? profiles.find(p => p.id === profileId) : null;
+      if (prof && prof.menuAppearance && typeof prof.menuAppearance === 'object') {
+        if (callback) callback(Object.assign(getDefaultHoverSettings(), prof.menuAppearance));
+        return;
+      }
+      const profileKey = profileId ? HOVER_SETTINGS_KEY + '_' + profileId : HOVER_SETTINGS_KEY;
+      chrome.storage.local.get([profileKey, HOVER_SETTINGS_KEY], (result2) => {
+        let settings;
+        if (result2[profileKey]) {
+          settings = Object.assign(getDefaultHoverSettings(), result2[profileKey]);
+        } else if (result2[HOVER_SETTINGS_KEY]) {
+          settings = Object.assign(getDefaultHoverSettings(), result2[HOVER_SETTINGS_KEY]);
+        } else {
+          settings = getDefaultHoverSettings();
+        }
+        if (callback) callback(settings);
+      });
+    });
+  }
+
   // Load hover settings and apply styles on init.
   function initHoverStyles() {
-    if (!isExtensionValid()) return;
-    chrome.storage.local.get([HOVER_SETTINGS_KEY], (result) => {
-      const settings = result[HOVER_SETTINGS_KEY] || {
-        hoverBgColor: DEFAULT_HOVER_BG,
-        hoverTextColor: DEFAULT_HOVER_TEXT
-      };
+    loadProfileHoverSettings((settings) => {
       applyHoverStyles(settings);
     });
   }
 
   // Listen for storage changes to update hover styles dynamically.
   if (isExtensionValid()) chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes[HOVER_SETTINGS_KEY]) {
-      applyHoverStyles(changes[HOVER_SETTINGS_KEY].newValue || {});
+    if (areaName !== 'local') return;
+    if (changes['ifsActiveProfile'] || changes['ifsProfiles']) {
+      initHoverStyles();
+      return;
+    }
+    for (const key of Object.keys(changes)) {
+      if (key.startsWith(HOVER_SETTINGS_KEY)) {
+        initHoverStyles();
+        break;
+      }
     }
   });
 

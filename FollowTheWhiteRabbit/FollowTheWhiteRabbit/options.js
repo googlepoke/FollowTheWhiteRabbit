@@ -7,27 +7,99 @@ const STORAGE_KEY = 'ifsQuickCallItems';
 const HOVER_SETTINGS_KEY = 'ifsHoverSettings';
 const DEFAULT_HOVER_BG = '#0365D8';
 const DEFAULT_HOVER_TEXT = '#FFFFFF';
+const DEFAULT_FONT_SIZE = '12';
+const DEFAULT_FONT_FAMILY = 'Open Sans';
 
 // Profile storage keys
 const PROFILES_KEY = 'ifsProfiles';
 const ACTIVE_PROFILE_KEY = 'ifsActiveProfile';
 
-// Load hover settings from chrome.storage.local.
-function loadHoverSettings(callback) {
-  chrome.storage.local.get([HOVER_SETTINGS_KEY], (result) => {
-    const settings = result[HOVER_SETTINGS_KEY] || {
-      hoverBgColor: DEFAULT_HOVER_BG,
-      hoverTextColor: DEFAULT_HOVER_TEXT
-    };
-    callback(settings);
+// Default appearance settings object.
+function getDefaultHoverSettings() {
+  return {
+    hoverBgColor: DEFAULT_HOVER_BG,
+    hoverTextColor: DEFAULT_HOVER_TEXT,
+    fontSize: DEFAULT_FONT_SIZE,
+    fontFamily: DEFAULT_FONT_FAMILY
+  };
+}
+
+// Normalize imported menu appearance (export/import and legacy migration).
+function normalizeMenuAppearance(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = getDefaultHoverSettings();
+  const hexOk = (s) => typeof s === 'string' && /^#[0-9A-Fa-f]{6}$/.test(s);
+  return {
+    hoverBgColor: hexOk(raw.hoverBgColor) ? raw.hoverBgColor : d.hoverBgColor,
+    hoverTextColor: hexOk(raw.hoverTextColor) ? raw.hoverTextColor : d.hoverTextColor,
+    fontSize: String(raw.fontSize != null ? raw.fontSize : d.fontSize),
+    fontFamily: typeof raw.fontFamily === 'string' && raw.fontFamily.trim() ? raw.fontFamily.trim() : d.fontFamily
+  };
+}
+
+// Load hover settings: primary source is profile.menuAppearance; legacy keys supported until migrated.
+function loadHoverSettings(profileId, callback) {
+  loadProfiles((profiles) => {
+    const prof = profileId ? profiles.find(p => p.id === profileId) : null;
+    if (prof && prof.menuAppearance && typeof prof.menuAppearance === 'object') {
+      callback(Object.assign(getDefaultHoverSettings(), prof.menuAppearance));
+      return;
+    }
+    const profileKey = profileId ? HOVER_SETTINGS_KEY + '_' + profileId : HOVER_SETTINGS_KEY;
+    chrome.storage.local.get([profileKey, HOVER_SETTINGS_KEY], (result) => {
+      if (result[profileKey]) {
+        callback(Object.assign(getDefaultHoverSettings(), result[profileKey]));
+      } else if (result[HOVER_SETTINGS_KEY]) {
+        callback(Object.assign(getDefaultHoverSettings(), result[HOVER_SETTINGS_KEY]));
+      } else {
+        callback(getDefaultHoverSettings());
+      }
+    });
   });
 }
 
-// Save hover settings to chrome.storage.local.
-function saveHoverSettings(settings, callback) {
-  let data = {};
-  data[HOVER_SETTINGS_KEY] = settings;
-  chrome.storage.local.set(data, callback);
+// Save hover settings on the profile record (ifsProfiles).
+function saveHoverSettings(profileId, settings, callback) {
+  if (!profileId) {
+    const data = {};
+    data[HOVER_SETTINGS_KEY] = settings;
+    chrome.storage.local.set(data, callback);
+    return;
+  }
+  loadProfiles((profiles) => {
+    const idx = profiles.findIndex(p => p.id === profileId);
+    if (idx === -1) {
+      if (callback) callback();
+      return;
+    }
+    profiles[idx].menuAppearance = Object.assign(getDefaultHoverSettings(), settings);
+    saveProfiles(profiles, callback);
+  });
+}
+
+// Copy legacy per-key menu settings onto profile objects once.
+function ensureMenuAppearanceOnProfiles(callback) {
+  loadProfiles((profiles) => {
+    if (!profiles.length) {
+      if (callback) callback();
+      return;
+    }
+    const keysToLoad = [HOVER_SETTINGS_KEY];
+    profiles.forEach(p => keysToLoad.push(HOVER_SETTINGS_KEY + '_' + p.id));
+    chrome.storage.local.get(keysToLoad, (legacy) => {
+      let changed = false;
+      profiles.forEach(p => {
+        if (p.menuAppearance && typeof p.menuAppearance === 'object') return;
+        p.menuAppearance = Object.assign(
+          getDefaultHoverSettings(),
+          legacy[HOVER_SETTINGS_KEY + '_' + p.id] || legacy[HOVER_SETTINGS_KEY] || {}
+        );
+        changed = true;
+      });
+      if (changed) saveProfiles(profiles, callback);
+      else if (callback) callback();
+    });
+  });
 }
 
 // Load items from chrome.storage.local.
@@ -91,7 +163,7 @@ function saveActiveProfile(profileId, callback) {
 }
 
 function migrateToProfiles(callback) {
-  chrome.storage.local.get([PROFILES_KEY, STORAGE_KEY], (result) => {
+  chrome.storage.local.get([PROFILES_KEY, STORAGE_KEY, HOVER_SETTINGS_KEY], (result) => {
     const profiles = result[PROFILES_KEY];
     if (profiles && profiles.length > 0) { callback(); return; }
     const generalId = generateProfileId();
@@ -101,8 +173,16 @@ function migrateToProfiles(callback) {
         item.profiles = [generalId];
       }
     });
+    const firstProfile = {
+      id: generalId,
+      name: 'General',
+      menuAppearance: Object.assign(
+        getDefaultHoverSettings(),
+        result[HOVER_SETTINGS_KEY] || {}
+      )
+    };
     const data = {};
-    data[PROFILES_KEY] = [{ id: generalId, name: 'General' }];
+    data[PROFILES_KEY] = [firstProfile];
     data[ACTIVE_PROFILE_KEY] = generalId;
     data[STORAGE_KEY] = items;
     chrome.storage.local.set(data, callback);
@@ -322,11 +402,14 @@ function addProfile() {
   const name = prompt('Enter new profile name:');
   if (!name || !name.trim()) return;
   loadProfiles((profiles) => {
-    const newProfile = { id: generateProfileId(), name: name.trim() };
+    const newProfile = { id: generateProfileId(), name: name.trim(), menuAppearance: getDefaultHoverSettings() };
     profiles.push(newProfile);
     saveProfiles(profiles, () => {
       saveActiveProfile(newProfile.id, () => {
-        renderProfileDropdown(() => renderItems());
+        renderProfileDropdown(() => {
+          renderItems();
+          initHoverSettings();
+        });
       });
     });
   });
@@ -358,7 +441,8 @@ function duplicateProfile() {
     let counter = 1;
     let newName = source.name + ' (' + counter + ')';
     while (existingNames.has(newName)) { counter++; newName = source.name + ' (' + counter + ')'; }
-    profiles.push({ id: newId, name: newName });
+    const dupAppearance = Object.assign(getDefaultHoverSettings(), source.menuAppearance || {});
+    profiles.push({ id: newId, name: newName, menuAppearance: dupAppearance });
     saveProfiles(profiles, () => {
       loadItems((items) => {
         items.forEach(item => {
@@ -369,7 +453,10 @@ function duplicateProfile() {
         saveItems(items, (err) => {
           if (err) { alert("Failed to save: " + (err.message || "Storage quota exceeded.")); return; }
           saveActiveProfile(newId, () => {
-            renderProfileDropdown(() => renderItems());
+            renderProfileDropdown(() => {
+              renderItems();
+              initHoverSettings();
+            });
           });
         });
       });
@@ -386,12 +473,17 @@ function deleteProfile() {
     if (!confirm('Delete profile "' + (profile ? profile.name : '') + '"? Items will remain but lose this profile assignment.')) return;
     const newProfiles = profiles.filter(p => p.id !== activeId);
     saveProfiles(newProfiles, () => {
+      // Remove appearance settings for deleted profile
+      chrome.storage.local.remove(HOVER_SETTINGS_KEY + '_' + activeId);
       loadItems((items) => {
         items.forEach(item => { if (item.profiles) { item.profiles = item.profiles.filter(id => id !== activeId); } });
         saveItems(items, (err) => {
           if (err) { alert("Failed to save: " + (err.message || "Storage quota exceeded.")); return; }
           saveActiveProfile(newProfiles[0].id, () => {
-            renderProfileDropdown(() => renderItems());
+            renderProfileDropdown(() => {
+              renderItems();
+              initHoverSettings();
+            });
           });
         });
       });
@@ -1224,7 +1316,7 @@ loadItems((items) => {
   }
 });
 
-// Export items for the active profile as a JSON file.
+// Export items and menu appearance for the active profile as a JSON file.
 document.getElementById('btnExport').addEventListener('click', function() {
   const activeProfileId = getActiveProfileId();
   loadItems((items) => {
@@ -1234,13 +1326,21 @@ document.getElementById('btnExport').addEventListener('click', function() {
         : items;
       const activeProfile = profiles.find(p => p.id === activeProfileId);
       const profileName = activeProfile ? activeProfile.name.replace(/[^a-zA-Z0-9]/g, '_') : 'all';
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(profileItems, null, 4));
-      const downloadAnchorNode = document.createElement('a');
-      downloadAnchorNode.setAttribute("href", dataStr);
-      downloadAnchorNode.setAttribute("download", "ifs_quick_call_" + profileName + ".json");
-      document.body.appendChild(downloadAnchorNode);
-      downloadAnchorNode.click();
-      downloadAnchorNode.remove();
+      loadHoverSettings(activeProfileId, (appearance) => {
+        const payload = {
+          exportVersion: 1,
+          profileName: activeProfile ? activeProfile.name : 'all',
+          menuAppearance: appearance,
+          items: profileItems
+        };
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 4));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "ifs_quick_call_" + profileName + ".json");
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+      });
     });
   });
 });
@@ -1256,8 +1356,18 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const importedItems = JSON.parse(e.target.result);
-      if (!Array.isArray(importedItems)) { alert("Invalid file format."); return; }
+      const parsed = JSON.parse(e.target.result);
+      let importedItems;
+      let importedMenu = null;
+      if (Array.isArray(parsed)) {
+        importedItems = parsed;
+      } else if (parsed && Array.isArray(parsed.items)) {
+        importedItems = parsed.items;
+        if (parsed.menuAppearance) importedMenu = normalizeMenuAppearance(parsed.menuAppearance);
+      } else {
+        alert("Invalid file format.");
+        return;
+      }
       const activeProfileId = getActiveProfileId();
       const doReplace = confirm("Replace all items in this profile?\n\nOK = Replace (remove existing, add imported)\nCancel = Merge (keep existing, add imported)");
       loadItems((allItems) => {
@@ -1265,21 +1375,28 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
           if (!item.profiles || !Array.isArray(item.profiles)) item.profiles = [];
           if (activeProfileId && !item.profiles.includes(activeProfileId)) item.profiles.push(activeProfileId);
         });
+        const finishImport = (err) => {
+          if (err) { alert("Import failed: " + (err.message || "Storage quota exceeded.")); return; }
+          if (importedMenu && activeProfileId) {
+            saveHoverSettings(activeProfileId, importedMenu, () => {
+              renderItems();
+              initHoverSettings();
+              alert("Import successful!" + (doReplace ? " (replaced)" : " (merged)") + " Menu appearance updated.");
+            });
+          } else {
+            renderItems();
+            alert("Import successful!" + (doReplace ? " (replaced)" : " (merged)"));
+          }
+        };
         if (doReplace) {
           const kept = allItems.filter(item => {
             if (!item.profiles) return true;
             item.profiles = item.profiles.filter(id => id !== activeProfileId);
             return item.profiles.length > 0;
           });
-          saveItems(kept.concat(importedItems), (err) => {
-            if (err) { alert("Import failed: " + (err.message || "Storage quota exceeded.")); return; }
-            renderItems(); alert("Import successful! (replaced)");
-          });
+          saveItems(kept.concat(importedItems), finishImport);
         } else {
-          saveItems(allItems.concat(importedItems), (err) => {
-            if (err) { alert("Import failed: " + (err.message || "Storage quota exceeded.")); return; }
-            renderItems(); alert("Import successful! (merged)");
-          });
+          saveItems(allItems.concat(importedItems), finishImport);
         }
       });
     } catch (error) { alert("Error parsing the file."); }
@@ -1311,14 +1428,18 @@ const hoverBgHexInput = document.getElementById('hoverBgHex');
 const hoverTextColorInput = document.getElementById('hoverTextColor');
 const hoverTextHexInput = document.getElementById('hoverTextHex');
 const btnResetColors = document.getElementById('btnResetColors');
+const menuFontSizeSelect = document.getElementById('menuFontSize');
+const menuFontFamilySelect = document.getElementById('menuFontFamily');
 
 // Sync color picker with hex input and save
 function syncAndSaveHoverSettings() {
   const settings = {
     hoverBgColor: hoverBgColorInput.value,
-    hoverTextColor: hoverTextColorInput.value
+    hoverTextColor: hoverTextColorInput.value,
+    fontSize: menuFontSizeSelect.value,
+    fontFamily: menuFontFamilySelect.value
   };
-  saveHoverSettings(settings);
+  saveHoverSettings(getActiveProfileId(), settings);
 }
 
 // Validate hex color format
@@ -1358,31 +1479,44 @@ hoverTextHexInput.addEventListener('input', function() {
   }
 });
 
-// Reset to default colors
+// Reset to default colors and font settings
 btnResetColors.addEventListener('click', function() {
   hoverBgColorInput.value = DEFAULT_HOVER_BG;
   hoverBgHexInput.value = DEFAULT_HOVER_BG;
   hoverTextColorInput.value = DEFAULT_HOVER_TEXT;
   hoverTextHexInput.value = DEFAULT_HOVER_TEXT;
+  menuFontSizeSelect.value = DEFAULT_FONT_SIZE;
+  menuFontFamilySelect.value = DEFAULT_FONT_FAMILY;
   syncAndSaveHoverSettings();
 });
 
-// Load and apply saved hover settings on page load
+// Font size and font family change listeners
+menuFontSizeSelect.addEventListener('change', syncAndSaveHoverSettings);
+menuFontFamilySelect.addEventListener('change', syncAndSaveHoverSettings);
+
+// Load and apply saved hover settings on page load (per-profile)
 function initHoverSettings() {
-  loadHoverSettings((settings) => {
+  const profileId = getActiveProfileId();
+  loadHoverSettings(profileId, (settings) => {
     hoverBgColorInput.value = settings.hoverBgColor;
     hoverBgHexInput.value = settings.hoverBgColor.toUpperCase();
     hoverTextColorInput.value = settings.hoverTextColor;
     hoverTextHexInput.value = settings.hoverTextColor.toUpperCase();
+    menuFontSizeSelect.value = settings.fontSize;
+    menuFontFamilySelect.value = settings.fontFamily;
   });
 }
 
 // Initial render with profile migration
 document.addEventListener('DOMContentLoaded', function() {
   migrateToProfiles(() => {
-    renderProfileDropdown(() => { renderItems(); });
+    ensureMenuAppearanceOnProfiles(() => {
+      renderProfileDropdown(() => {
+        renderItems();
+        initHoverSettings();
+      });
+    });
   });
-  initHoverSettings();
 
   document.getElementById('btnAddProfile').addEventListener('click', addProfile);
   document.getElementById('btnEditProfile').addEventListener('click', editProfile);
@@ -1390,6 +1524,9 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btnDeleteProfile').addEventListener('click', deleteProfile);
 
   document.getElementById('profileSelect').addEventListener('change', function() {
-    saveActiveProfile(this.value, () => { renderItems(); });
+    saveActiveProfile(this.value, () => {
+      renderItems();
+      initHoverSettings();
+    });
   });
 });

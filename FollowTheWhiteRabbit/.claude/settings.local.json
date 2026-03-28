@@ -4,7 +4,8 @@
       "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)",
       "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)",
       "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)",
-      "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)"
+      "Read(/C:\\Users\\macrau\\OneDrive - IFS\\.Cursor\\FollowTheWhiteRabbit\\FollowTheWhiteRabbit/**)",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []
