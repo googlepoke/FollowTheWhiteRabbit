@@ -256,14 +256,20 @@ async function renderItems() {
         tr.appendChild(tdProfiles);
         // Actions
         const tdActions = document.createElement('td');
-      const editBtn = document.createElement('button');
-      editBtn.textContent = 'Edit';
+        const editBtn = document.createElement('button');
+      editBtn.type = 'button';
       editBtn.className = 'btn btn-sm btn-outline-primary me-2';
+      editBtn.title = 'Edit';
+      editBtn.setAttribute('aria-label', 'Edit');
+      editBtn.innerHTML = '<i class="bi bi-pencil" aria-hidden="true"></i>';
       editBtn.onclick = () => openModal('edit', items.indexOf(item));
       tdActions.appendChild(editBtn);
       const duplicateBtn = document.createElement('button');
-      duplicateBtn.textContent = 'Duplicate';
+      duplicateBtn.type = 'button';
       duplicateBtn.className = 'btn btn-sm btn-outline-secondary me-2';
+      duplicateBtn.title = 'Duplicate';
+      duplicateBtn.setAttribute('aria-label', 'Duplicate');
+      duplicateBtn.innerHTML = '<i class="bi bi-copy" aria-hidden="true"></i>';
       duplicateBtn.onclick = () => duplicateItem(items.indexOf(item));
       tdActions.appendChild(duplicateBtn);
       const toggleBtn = document.createElement('button');
@@ -273,8 +279,11 @@ async function renderItems() {
       toggleBtn.onclick = () => toggleItemVisibility(items.indexOf(item));
       tdActions.appendChild(toggleBtn);
       const deleteBtn = document.createElement('button');
-      deleteBtn.textContent = 'Delete';
+      deleteBtn.type = 'button';
       deleteBtn.className = 'btn btn-sm btn-outline-danger';
+      deleteBtn.title = 'Delete';
+      deleteBtn.setAttribute('aria-label', 'Delete');
+      deleteBtn.innerHTML = '<i class="bi bi-trash" aria-hidden="true"></i>';
       deleteBtn.onclick = () => {
         if (confirm('Are you sure you want to delete this item?')) {
           deleteItem(items.indexOf(item));
