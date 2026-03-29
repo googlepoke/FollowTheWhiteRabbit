@@ -1,0 +1,260 @@
+.custom-context-menu {
+  position: absolute;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 999999999;
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1A1B1D;
+  border-radius: 0;
+  min-width: 120px;
+  width: fit-content;
+  padding: 4px 0;
+}
+
+.custom-context-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.custom-context-menu li {
+  padding: 8px 16px;
+  cursor: pointer;
+  color: #1A1B1D;
+  background: none;
+  border: none;
+  border-radius: 0;
+  transition: background 0.15s, color 0.15s, font-weight 0.15s;
+  font-weight: 400;
+}
+
+.custom-context-menu li:hover {
+  background-color: #0365D8;
+  color: #fff;
+  font-weight: 400;
+}
+
+.custom-context-menu li:not(:last-child) {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* To-Do List Modal Styles */
+.ifs-todo-overlay {
+  font-family: 'Open Sans', Arial, sans-serif;
+}
+
+.ifs-todo-modal {
+  font-family: inherit;
+}
+
+.ifs-todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ifs-todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.15s ease;
+}
+
+.ifs-todo-item:last-child {
+  border-bottom: none;
+}
+
+.ifs-todo-item:hover {
+  background-color: #f8f9fa;
+}
+
+.ifs-todo-checkbox {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #0365D8;
+}
+
+.ifs-todo-checkbox:focus-visible {
+  outline: 2px solid rgba(3, 101, 216, 0.85);
+  outline-offset: 2px;
+}
+
+.ifs-todo-text {
+  flex: 1;
+  line-height: 1.5;
+  transition: opacity 0.2s ease, text-decoration 0.2s ease;
+}
+
+.ifs-todo-checked .ifs-todo-text {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Rich Text Modal Image Scaling */
+.ifs-richtext-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 16px auto;
+}
+
+/* Sticky Note Styles */
+.ifs-sticky-note {
+  position: fixed;
+  width: 280px;
+  min-height: 200px;
+  background-color: #FFEB3B;
+  box-shadow: 
+    2px 4px 12px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  border-radius: 2px;
+  font-family: 'Segoe UI', 'Comic Sans MS', cursive, sans-serif;
+  z-index: 999999998;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.ifs-sticky-note:hover {
+  box-shadow: 
+    4px 8px 20px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.ifs-sticky-note::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.ifs-sticky-note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.05);
+  cursor: move;
+  user-select: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ifs-sticky-note-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.ifs-sticky-note-close {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.5);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ifs-sticky-note-close:hover {
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.ifs-sticky-note-colors {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ifs-sticky-note-color-btn {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.ifs-sticky-note-color-btn:hover {
+  transform: scale(1.15);
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.ifs-sticky-note-color-btn.active {
+  border-color: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.ifs-sticky-note-body {
+  flex: 1;
+  padding: 10px;
+  min-height: 120px;
+}
+
+.ifs-sticky-note-textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.8);
+  outline: none;
+}
+
+.ifs-sticky-note-textarea::placeholder {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.ifs-sticky-note-textarea:focus {
+  outline: none;
+}
+
+/* Fold effect on bottom right corner */
+.ifs-sticky-note::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 20px 20px;
+  border-color: transparent transparent rgba(0, 0, 0, 0.1) transparent;
+  pointer-events: none;
+}
+

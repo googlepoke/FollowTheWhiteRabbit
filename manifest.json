@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Follow the White Rabbit",
+  "version": "3.0",
+  "description": "Manage your customizable RMB list.",
+  "author": "Manie Cronje",
+  "permissions": ["tabs", "storage"],
+
+  "icons": {
+    "16":  "icons/ifs-rabbit-16.png",
+    "48":  "icons/ifs-rabbit-48.png",
+    "128": "icons/ifs-rabbit-128.png"
+  },
+
+  "background": { "service_worker": "background.js" },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_end"
+    }
+  ],
+
+  "action": {
+    "default_icon": {
+      "16":  "icons/ifs-rabbit-16.png",
+      "48":  "icons/ifs-rabbit-48.png",
+      "128": "icons/ifs-rabbit-128.png"
+    },
+    "default_popup": "options.html",
+    "default_title": "Follow the White Rabbit"
+  }
+}
