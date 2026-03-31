@@ -22,6 +22,8 @@
   const HOVER_SETTINGS_KEY = 'ifsHoverSettings';
   const DEFAULT_HOVER_BG = '#0365D8';
   const DEFAULT_HOVER_TEXT = '#FFFFFF';
+  const DEFAULT_MENU_BG = '#FFFFFF';
+  const DEFAULT_MENU_TEXT = '#1A1B1D';
   const DEFAULT_FONT_SIZE = '12';
   const DEFAULT_FONT_FAMILY = 'Open Sans';
 
@@ -29,6 +31,8 @@
     return {
       hoverBgColor: DEFAULT_HOVER_BG,
       hoverTextColor: DEFAULT_HOVER_TEXT,
+      menuBgColor: DEFAULT_MENU_BG,
+      menuTextColor: DEFAULT_MENU_TEXT,
       fontSize: DEFAULT_FONT_SIZE,
       fontFamily: DEFAULT_FONT_FAMILY
     };
@@ -38,6 +42,8 @@
   function applyHoverStyles(settings) {
     const bgColor = settings.hoverBgColor || DEFAULT_HOVER_BG;
     const textColor = settings.hoverTextColor || DEFAULT_HOVER_TEXT;
+    const menuBgColor = settings.menuBgColor || DEFAULT_MENU_BG;
+    const menuTextColor = settings.menuTextColor || DEFAULT_MENU_TEXT;
     const fontSize = settings.fontSize || DEFAULT_FONT_SIZE;
     const fontFamily = settings.fontFamily || DEFAULT_FONT_FAMILY;
 
@@ -52,8 +58,13 @@
     style.id = 'ifs-hover-styles';
     style.textContent = `
       .custom-context-menu {
+        background-color: ${menuBgColor} !important;
+        color: ${menuTextColor} !important;
         font-family: '${fontFamily}', Arial, sans-serif !important;
         font-size: ${fontSize}px !important;
+      }
+      .custom-context-menu li {
+        color: ${menuTextColor} !important;
       }
       .custom-context-menu li:hover,
       .ifs-todo-item:hover {

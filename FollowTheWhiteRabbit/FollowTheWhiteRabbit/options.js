@@ -25,6 +25,8 @@ const STORAGE_KEY = 'ifsQuickCallItems';
 const HOVER_SETTINGS_KEY = 'ifsHoverSettings';
 const DEFAULT_HOVER_BG = '#0365D8';
 const DEFAULT_HOVER_TEXT = '#FFFFFF';
+const DEFAULT_MENU_BG = '#FFFFFF';
+const DEFAULT_MENU_TEXT = '#1A1B1D';
 const DEFAULT_FONT_SIZE = '12';
 const DEFAULT_FONT_FAMILY = 'Open Sans';
 
@@ -37,6 +39,8 @@ function getDefaultHoverSettings() {
   return {
     hoverBgColor: DEFAULT_HOVER_BG,
     hoverTextColor: DEFAULT_HOVER_TEXT,
+    menuBgColor: DEFAULT_MENU_BG,
+    menuTextColor: DEFAULT_MENU_TEXT,
     fontSize: DEFAULT_FONT_SIZE,
     fontFamily: DEFAULT_FONT_FAMILY
   };
@@ -50,6 +54,8 @@ function normalizeMenuAppearance(raw) {
   return {
     hoverBgColor: hexOk(raw.hoverBgColor) ? raw.hoverBgColor : d.hoverBgColor,
     hoverTextColor: hexOk(raw.hoverTextColor) ? raw.hoverTextColor : d.hoverTextColor,
+    menuBgColor: hexOk(raw.menuBgColor) ? raw.menuBgColor : d.menuBgColor,
+    menuTextColor: hexOk(raw.menuTextColor) ? raw.menuTextColor : d.menuTextColor,
     fontSize: String(raw.fontSize != null ? raw.fontSize : d.fontSize),
     fontFamily: typeof raw.fontFamily === 'string' && raw.fontFamily.trim() ? raw.fontFamily.trim() : d.fontFamily
   };
@@ -1456,6 +1462,10 @@ const hoverBgColorInput = document.getElementById('hoverBgColor');
 const hoverBgHexInput = document.getElementById('hoverBgHex');
 const hoverTextColorInput = document.getElementById('hoverTextColor');
 const hoverTextHexInput = document.getElementById('hoverTextHex');
+const menuBgColorInput = document.getElementById('menuBgColor');
+const menuBgHexInput = document.getElementById('menuBgHex');
+const menuTextColorInput = document.getElementById('menuTextColor');
+const menuTextHexInput = document.getElementById('menuTextHex');
 const btnResetColors = document.getElementById('btnResetColors');
 const menuFontSizeSelect = document.getElementById('menuFontSize');
 const menuFontFamilySelect = document.getElementById('menuFontFamily');
@@ -1465,6 +1475,8 @@ function syncAndSaveHoverSettings() {
   const settings = {
     hoverBgColor: hoverBgColorInput.value,
     hoverTextColor: hoverTextColorInput.value,
+    menuBgColor: menuBgColorInput.value,
+    menuTextColor: menuTextColorInput.value,
     fontSize: menuFontSizeSelect.value,
     fontFamily: menuFontFamilySelect.value
   };
@@ -1508,12 +1520,48 @@ hoverTextHexInput.addEventListener('input', function() {
   }
 });
 
+// Menu background color picker -> hex input sync
+menuBgColorInput.addEventListener('input', function() {
+  menuBgHexInput.value = this.value.toUpperCase();
+  syncAndSaveHoverSettings();
+});
+
+// Menu background hex input -> color picker sync
+menuBgHexInput.addEventListener('input', function() {
+  let val = this.value.toUpperCase();
+  if (!val.startsWith('#')) val = '#' + val;
+  if (isValidHex(val)) {
+    menuBgColorInput.value = val;
+    syncAndSaveHoverSettings();
+  }
+});
+
+// Menu text color picker -> hex input sync
+menuTextColorInput.addEventListener('input', function() {
+  menuTextHexInput.value = this.value.toUpperCase();
+  syncAndSaveHoverSettings();
+});
+
+// Menu text hex input -> color picker sync
+menuTextHexInput.addEventListener('input', function() {
+  let val = this.value.toUpperCase();
+  if (!val.startsWith('#')) val = '#' + val;
+  if (isValidHex(val)) {
+    menuTextColorInput.value = val;
+    syncAndSaveHoverSettings();
+  }
+});
+
 // Reset to default colors and font settings
 btnResetColors.addEventListener('click', function() {
   hoverBgColorInput.value = DEFAULT_HOVER_BG;
   hoverBgHexInput.value = DEFAULT_HOVER_BG;
   hoverTextColorInput.value = DEFAULT_HOVER_TEXT;
   hoverTextHexInput.value = DEFAULT_HOVER_TEXT;
+  menuBgColorInput.value = DEFAULT_MENU_BG;
+  menuBgHexInput.value = DEFAULT_MENU_BG;
+  menuTextColorInput.value = DEFAULT_MENU_TEXT;
+  menuTextHexInput.value = DEFAULT_MENU_TEXT;
   menuFontSizeSelect.value = DEFAULT_FONT_SIZE;
   menuFontFamilySelect.value = DEFAULT_FONT_FAMILY;
   syncAndSaveHoverSettings();
@@ -1531,6 +1579,10 @@ function initHoverSettings() {
     hoverBgHexInput.value = settings.hoverBgColor.toUpperCase();
     hoverTextColorInput.value = settings.hoverTextColor;
     hoverTextHexInput.value = settings.hoverTextColor.toUpperCase();
+    menuBgColorInput.value = settings.menuBgColor;
+    menuBgHexInput.value = settings.menuBgColor.toUpperCase();
+    menuTextColorInput.value = settings.menuTextColor;
+    menuTextHexInput.value = settings.menuTextColor.toUpperCase();
     menuFontSizeSelect.value = settings.fontSize;
     menuFontFamilySelect.value = settings.fontFamily;
   });
