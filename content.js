@@ -1,11 +1,21 @@
 (function() {
   // --- Utility Functions ---
 
-  // Asynchronously load items from chrome.storage.local.
+  function isExtensionValid() {
+    try { return !!chrome.runtime && !!chrome.runtime.id; } catch (e) { return false; }
+  }
+
+  // Asynchronously load items from chrome.storage.local, filtered by active profile.
   function loadItems(callback) {
-    chrome.storage.local.get(['ifsQuickCallItems'], (result) => {
-      const items = result.ifsQuickCallItems || [];
-      callback(items);
+    if (!isExtensionValid()) return;
+    chrome.storage.local.get(['ifsQuickCallItems', 'ifsActiveProfile'], (result) => {
+      // Drop null/undefined entries defensively — they would crash menu rendering.
+      const items = (result.ifsQuickCallItems || []).filter(i => i && typeof i === 'object');
+      const activeProfile = result.ifsActiveProfile || '';
+      const profileItems = activeProfile
+        ? items.filter(item => item.profiles && item.profiles.includes(activeProfile))
+        : items;
+      callback(profileItems);
     });
   }
 
@@ -13,11 +23,30 @@
   const HOVER_SETTINGS_KEY = 'ifsHoverSettings';
   const DEFAULT_HOVER_BG = '#0365D8';
   const DEFAULT_HOVER_TEXT = '#FFFFFF';
+  const DEFAULT_MENU_BG = '#FFFFFF';
+  const DEFAULT_MENU_TEXT = '#1A1B1D';
+  const DEFAULT_FONT_SIZE = '12';
+  const DEFAULT_FONT_FAMILY = 'Open Sans';
+
+  function getDefaultHoverSettings() {
+    return {
+      hoverBgColor: DEFAULT_HOVER_BG,
+      hoverTextColor: DEFAULT_HOVER_TEXT,
+      menuBgColor: DEFAULT_MENU_BG,
+      menuTextColor: DEFAULT_MENU_TEXT,
+      fontSize: DEFAULT_FONT_SIZE,
+      fontFamily: DEFAULT_FONT_FAMILY
+    };
+  }
 
   // Inject dynamic hover styles based on saved settings.
   function applyHoverStyles(settings) {
     const bgColor = settings.hoverBgColor || DEFAULT_HOVER_BG;
     const textColor = settings.hoverTextColor || DEFAULT_HOVER_TEXT;
+    const menuBgColor = settings.menuBgColor || DEFAULT_MENU_BG;
+    const menuTextColor = settings.menuTextColor || DEFAULT_MENU_TEXT;
+    const fontSize = settings.fontSize || DEFAULT_FONT_SIZE;
+    const fontFamily = settings.fontFamily || DEFAULT_FONT_FAMILY;
 
     // Remove existing dynamic style if present
     const existingStyle = document.getElementById('ifs-hover-styles');
@@ -29,6 +58,21 @@
     const style = document.createElement('style');
     style.id = 'ifs-hover-styles';
     style.textContent = `
+      .custom-context-menu {
+        background-color: ${menuBgColor} !important;
+        color: ${menuTextColor} !important;
+        font-family: '${fontFamily}', Arial, sans-serif !important;
+        font-size: ${fontSize}px !important;
+      }
+      .custom-context-menu li {
+        color: ${menuTextColor} !important;
+      }
+      /* Submenu UL must NOT inherit its parent li's :hover background, or
+         unhovered submenu children would all appear highlighted through it. */
+      .custom-context-menu .submenu {
+        background-color: ${menuBgColor} !important;
+        color: ${menuTextColor} !important;
+      }
       .custom-context-menu li:hover,
       .ifs-todo-item:hover {
         background-color: ${bgColor} !important;
@@ -42,21 +86,80 @@
     document.head.appendChild(style);
   }
 
+  // Load hover settings for active profile and apply styles (profile.menuAppearance first, then legacy keys).
+  function loadProfileHoverSettings(callback) {
+    if (!isExtensionValid()) return;
+    chrome.storage.local.get(['ifsActiveProfile', 'ifsProfiles'], (result) => {
+      const profileId = result.ifsActiveProfile || '';
+      const profiles = result.ifsProfiles || [];
+      const prof = profileId ? profiles.find(p => p.id === profileId) : null;
+      if (prof && prof.menuAppearance && typeof prof.menuAppearance === 'object') {
+        if (callback) callback(Object.assign(getDefaultHoverSettings(), prof.menuAppearance));
+        return;
+      }
+      const profileKey = profileId ? HOVER_SETTINGS_KEY + '_' + profileId : HOVER_SETTINGS_KEY;
+      chrome.storage.local.get([profileKey, HOVER_SETTINGS_KEY], (result2) => {
+        let settings;
+        if (result2[profileKey]) {
+          settings = Object.assign(getDefaultHoverSettings(), result2[profileKey]);
+        } else if (result2[HOVER_SETTINGS_KEY]) {
+          settings = Object.assign(getDefaultHoverSettings(), result2[HOVER_SETTINGS_KEY]);
+        } else {
+          settings = getDefaultHoverSettings();
+        }
+        if (callback) callback(settings);
+      });
+    });
+  }
+
   // Load hover settings and apply styles on init.
   function initHoverStyles() {
-    chrome.storage.local.get([HOVER_SETTINGS_KEY], (result) => {
-      const settings = result[HOVER_SETTINGS_KEY] || {
-        hoverBgColor: DEFAULT_HOVER_BG,
-        hoverTextColor: DEFAULT_HOVER_TEXT
-      };
+    loadProfileHoverSettings((settings) => {
       applyHoverStyles(settings);
     });
   }
 
   // Listen for storage changes to update hover styles dynamically.
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && changes[HOVER_SETTINGS_KEY]) {
-      applyHoverStyles(changes[HOVER_SETTINGS_KEY].newValue || {});
+  if (isExtensionValid()) chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local') return;
+    if (changes['ifsActiveProfile'] || changes['ifsProfiles']) {
+      initHoverStyles();
+      return;
+    }
+    for (const key of Object.keys(changes)) {
+      if (key.startsWith(HOVER_SETTINGS_KEY)) {
+        initHoverStyles();
+        break;
+      }
+    }
+  });
+
+  // --- Incognito-fallback notice (shown when background.js can't open an incognito window) ---
+  function showInPageToast(text) {
+    var toast = document.createElement('div');
+    toast.style.cssText =
+      'position:fixed;bottom:24px;right:24px;z-index:2147483647;' +
+      'background:#333;color:#fff;padding:12px 18px;border-radius:6px;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,0.3);' +
+      'font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+      'max-width:360px;';
+    toast.textContent = text;
+    document.body.appendChild(toast);
+    setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 4000);
+  }
+  function showIncognitoFallbackToast() {
+    if (!isExtensionValid()) return;
+    chrome.storage.local.get(['ifsUiJapanese'], function(result) {
+      var ja = !!(result && result.ifsUiJapanese);
+      var msg = ja
+        ? 'シークレットウィンドウで開けませんでした — 新しいタブで開きました。この拡張機能で「シークレット モードでの実行を許可する」を有効にしてください。'
+        : "Could not open in incognito window — opened in a new tab. Enable 'Allow in incognito' for this extension to use this feature.";
+      showInPageToast(msg);
+    });
+  }
+  if (isExtensionValid()) chrome.runtime.onMessage.addListener(function(msg) {
+    if (msg && msg.action === 'incognitoFallback') {
+      showIncognitoFallbackToast();
     }
   });
 
@@ -73,6 +176,7 @@
 
   // Load todo state for a specific item
   function loadTodoState(storageKey, callback) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([TODO_STATES_KEY], (result) => {
       const allStates = result[TODO_STATES_KEY] || {};
       const state = allStates[storageKey] || {};
@@ -82,6 +186,7 @@
 
   // Save todo state for a specific item
   function saveTodoState(storageKey, stateObj) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([TODO_STATES_KEY], (result) => {
       const allStates = result[TODO_STATES_KEY] || {};
       allStates[storageKey] = stateObj;
@@ -99,6 +204,7 @@
 
   // Load note state for a specific item
   function loadNoteState(storageKey, callback) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([NOTE_STATES_KEY], (result) => {
       const allStates = result[NOTE_STATES_KEY] || {};
       const state = allStates[storageKey] || {};
@@ -108,6 +214,7 @@
 
   // Save note state for a specific item
   function saveNoteState(storageKey, stateObj) {
+    if (!isExtensionValid()) return;
     chrome.storage.local.get([NOTE_STATES_KEY], (result) => {
       const allStates = result[NOTE_STATES_KEY] || {};
       allStates[storageKey] = stateObj;
@@ -172,27 +279,28 @@
     ul.style.margin = "0";
     ul.style.padding = "0";
 
-    // Create a list item for each entry.
-    items.forEach(item => {
-      const li = document.createElement("li");
-      li.textContent = item.callName;
-      li.style.padding = "8px 12px";
-      li.style.cursor = "pointer";
-
-      li.addEventListener("click", function(e) {
-        e.stopPropagation();
+    // Execute the action for a clicked leaf item — extracted from the previous inline click
+    // handler so cascading sub-menu children can dispatch through the same code path.
+    function executeAction(item) {
         customMenu.style.display = "none";
         switch (item.actionType) {
           case 'alert':
             alert(item.actionParams && item.actionParams.text ? item.actionParams.text : '');
             break;
-          case 'openUrl':
-            chrome.runtime.sendMessage({
-              action: "navigate",
-              url: item.url,
-              currentTab: item.currentTab
-            });
+          case 'openUrl': {
+            // Prefer the new 'openIn' field; fall back to the legacy 'currentTab' boolean.
+            var openIn = item.openIn || (item.currentTab ? 'currentTab' : 'newTab');
+            if (openIn === 'incognito') {
+              chrome.runtime.sendMessage({ action: "openIncognito", url: item.url });
+            } else {
+              chrome.runtime.sendMessage({
+                action: "navigate",
+                url: item.url,
+                currentTab: openIn === 'currentTab'
+              });
+            }
             break;
+          }
           case 'logToConsole':
             console.log(item.actionParams && item.actionParams.message ? item.actionParams.message : '');
             break;
@@ -607,6 +715,22 @@
             // Load persisted states and build list
             loadTodoState(todoStorageKey, function(savedStates) {
               todoItems.forEach(function(todoEntry, idx) {
+                if (todoEntry.label === '---') {
+                  var li = document.createElement('li');
+                  li.className = 'ifs-todo-divider';
+                  li.style.listStyle = 'none';
+                  li.style.padding = '8px 0';
+                  li.style.cursor = 'default';
+                  var hr = document.createElement('hr');
+                  hr.style.border = 'none';
+                  hr.style.height = '4px';
+                  hr.style.margin = '0';
+                  hr.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.15) 40%, rgba(255,255,255,0.5) 60%, rgba(255,255,255,0.85))';
+                  hr.style.borderRadius = '2px';
+                  li.appendChild(hr);
+                  todoList.appendChild(li);
+                  return;
+                }
                 var li = document.createElement('li');
                 li.className = 'ifs-todo-item';
                 li.style.display = 'flex';
@@ -622,7 +746,7 @@
                 checkbox.style.height = '20px';
                 checkbox.style.marginTop = '2px';
                 checkbox.style.cursor = 'pointer';
-                checkbox.style.accentColor = '#0365D8';
+                checkbox.style.accentColor = '#006400';
                 checkbox.checked = savedStates[idx] === true;
 
                 // Create text element - anchor if URL exists, span otherwise
@@ -681,11 +805,9 @@
                   textElement.style.lineHeight = '1.5';
                 }
 
-                // Apply strikethrough if checked
                 if (checkbox.checked) {
                   li.classList.add('ifs-todo-checked');
-                  textElement.style.textDecoration = 'line-through';
-                  textElement.style.opacity = '0.6';
+                  textElement.style.color = '#006400';
                 }
 
                 // Toggle handler
@@ -693,12 +815,10 @@
                   savedStates[idx] = checkbox.checked;
                   if (checkbox.checked) {
                     li.classList.add('ifs-todo-checked');
-                    textElement.style.textDecoration = 'line-through';
-                    textElement.style.opacity = '0.6';
+                    textElement.style.color = '#006400';
                   } else {
                     li.classList.remove('ifs-todo-checked');
-                    textElement.style.textDecoration = 'none';
-                    textElement.style.opacity = '1';
+                    textElement.style.color = todoFontColor;
                   }
                   saveTodoState(todoStorageKey, savedStates);
                 });
@@ -946,32 +1066,497 @@
               activeNotes.set(noteStorageKey, noteElement);
             });
             break;
+          case 'markdown':
+            var mdOverlay = document.createElement('div');
+            mdOverlay.style.position = 'fixed';
+            mdOverlay.style.top = '0';
+            mdOverlay.style.left = '0';
+            mdOverlay.style.width = '100vw';
+            mdOverlay.style.height = '100vh';
+            mdOverlay.style.background = 'rgba(0,0,0,0.5)';
+            mdOverlay.style.zIndex = 999999999;
+            mdOverlay.style.display = 'flex';
+            mdOverlay.style.alignItems = 'center';
+            mdOverlay.style.justifyContent = 'center';
+            mdOverlay.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+            var mdBox = document.createElement('div');
+            mdBox.style.background = '#ffffff';
+            mdBox.style.padding = '32px';
+            mdBox.style.borderRadius = '12px';
+            mdBox.style.maxWidth = '90vw';
+            mdBox.style.maxHeight = '90vh';
+            mdBox.style.overflow = 'auto';
+            mdBox.style.position = 'relative';
+            mdBox.style.zIndex = 999999999;
+            mdBox.style.boxShadow = '0 20px 60px rgba(0,0,0,0.3)';
+            mdBox.style.width = '800px';
+
+            var mdContent = document.createElement('div');
+            mdContent.className = 'ifs-markdown-content';
+            mdContent.style.lineHeight = '1.7';
+            mdContent.style.color = '#333';
+            mdContent.style.fontSize = '16px';
+            mdContent.style.maxHeight = 'calc(90vh - 100px)';
+            mdContent.style.overflow = 'auto';
+            mdContent.style.paddingRight = '40px';
+
+            var rawMd = (item.actionParams && item.actionParams.markdownText) || '';
+            if (typeof marked !== 'undefined' && marked.parse) {
+              mdContent.innerHTML = marked.parse(rawMd);
+            } else {
+              mdContent.textContent = rawMd;
+            }
+
+            mdBox.appendChild(mdContent);
+
+            var mdCloseBtn = document.createElement('button');
+            mdCloseBtn.innerHTML = '&times;';
+            mdCloseBtn.style.position = 'absolute';
+            mdCloseBtn.style.top = '20px';
+            mdCloseBtn.style.right = '24px';
+            mdCloseBtn.style.fontSize = '28px';
+            mdCloseBtn.style.background = 'none';
+            mdCloseBtn.style.border = 'none';
+            mdCloseBtn.style.cursor = 'pointer';
+            mdCloseBtn.style.color = '#666';
+            mdCloseBtn.style.zIndex = 999999999;
+            mdCloseBtn.style.width = '32px';
+            mdCloseBtn.style.height = '32px';
+            mdCloseBtn.style.borderRadius = '50%';
+            mdCloseBtn.style.display = 'flex';
+            mdCloseBtn.style.alignItems = 'center';
+            mdCloseBtn.style.justifyContent = 'center';
+            mdCloseBtn.style.transition = 'all 0.2s ease';
+            mdCloseBtn.onmouseover = function() { mdCloseBtn.style.backgroundColor = 'rgba(0,0,0,0.1)'; };
+            mdCloseBtn.onmouseout = function() { mdCloseBtn.style.backgroundColor = 'transparent'; };
+            mdCloseBtn.onclick = function() { document.body.removeChild(mdOverlay); };
+            mdBox.appendChild(mdCloseBtn);
+
+            mdOverlay.appendChild(mdBox);
+            mdOverlay.addEventListener('click', function(ev) {
+              if (ev.target === mdOverlay) document.body.removeChild(mdOverlay);
+            });
+            document.body.appendChild(mdOverlay);
+            break;
+          case 'publishedPageUrl':
+            var ppUrl = (item.actionParams && item.actionParams.pageUrl) || '';
+            if (!ppUrl) break;
+
+            if (item.actionParams.incognito) {
+              chrome.runtime.sendMessage({ action: "openIncognito", url: ppUrl });
+              break;
+            }
+
+            var ppOverlay = document.createElement('div');
+            ppOverlay.className = 'ifs-published-page-overlay';
+            ppOverlay.style.position = 'fixed';
+            ppOverlay.style.top = '0';
+            ppOverlay.style.left = '0';
+            ppOverlay.style.width = '100vw';
+            ppOverlay.style.height = '100vh';
+            ppOverlay.style.background = 'rgba(0,0,0,0.6)';
+            ppOverlay.style.zIndex = 999999999;
+            ppOverlay.style.display = 'flex';
+            ppOverlay.style.alignItems = 'center';
+            ppOverlay.style.justifyContent = 'center';
+
+            var ppBox = document.createElement('div');
+            ppBox.className = 'ifs-published-page-modal';
+            ppBox.style.background = '#fff';
+            ppBox.style.borderRadius = '12px';
+            ppBox.style.width = '95vw';
+            ppBox.style.height = '90vh';
+            ppBox.style.position = 'relative';
+            ppBox.style.zIndex = 999999999;
+            ppBox.style.boxShadow = '0 20px 60px rgba(0,0,0,0.3)';
+            ppBox.style.overflow = 'hidden';
+            ppBox.style.display = 'flex';
+            ppBox.style.flexDirection = 'column';
+
+            var ppIframe = document.createElement('iframe');
+            ppIframe.src = ppUrl;
+            ppIframe.style.width = '100%';
+            ppIframe.style.flex = '1';
+            ppIframe.style.border = 'none';
+            ppIframe.style.borderRadius = '0 0 12px 12px';
+            ppIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+
+            var ppFallbackShown = false;
+            var ppFallbackTimer = setTimeout(function() {
+              if (!ppFallbackShown) {
+                ppFallbackShown = true;
+                var fallbackBar = document.createElement('div');
+                fallbackBar.style.padding = '8px 16px';
+                fallbackBar.style.background = '#fff3cd';
+                fallbackBar.style.color = '#856404';
+                fallbackBar.style.fontSize = '13px';
+                fallbackBar.style.display = 'flex';
+                fallbackBar.style.alignItems = 'center';
+                fallbackBar.style.gap = '12px';
+                fallbackBar.textContent = 'Page may not support embedded viewing. ';
+                var fallbackBtn = document.createElement('button');
+                fallbackBtn.textContent = 'Open in new window';
+                fallbackBtn.style.background = '#0365D8';
+                fallbackBtn.style.color = '#fff';
+                fallbackBtn.style.border = 'none';
+                fallbackBtn.style.padding = '4px 12px';
+                fallbackBtn.style.borderRadius = '4px';
+                fallbackBtn.style.cursor = 'pointer';
+                fallbackBtn.style.fontSize = '13px';
+                fallbackBtn.onclick = function() {
+                  window.open(ppUrl, '_blank', 'width=1200,height=800,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+                  document.body.removeChild(ppOverlay);
+                };
+                fallbackBar.appendChild(fallbackBtn);
+                ppBox.insertBefore(fallbackBar, ppIframe);
+              }
+            }, 5000);
+
+            ppIframe.addEventListener('load', function() {
+              clearTimeout(ppFallbackTimer);
+            });
+
+            ppBox.appendChild(ppIframe);
+
+            var ppCloseBtn = document.createElement('button');
+            ppCloseBtn.innerHTML = '&times;';
+            ppCloseBtn.style.position = 'absolute';
+            ppCloseBtn.style.top = '10px';
+            ppCloseBtn.style.right = '16px';
+            ppCloseBtn.style.fontSize = '28px';
+            ppCloseBtn.style.background = 'rgba(255,255,255,0.9)';
+            ppCloseBtn.style.border = 'none';
+            ppCloseBtn.style.cursor = 'pointer';
+            ppCloseBtn.style.color = '#333';
+            ppCloseBtn.style.zIndex = 999999999;
+            ppCloseBtn.style.width = '36px';
+            ppCloseBtn.style.height = '36px';
+            ppCloseBtn.style.borderRadius = '50%';
+            ppCloseBtn.style.display = 'flex';
+            ppCloseBtn.style.alignItems = 'center';
+            ppCloseBtn.style.justifyContent = 'center';
+            ppCloseBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            ppCloseBtn.style.transition = 'all 0.2s ease';
+            ppCloseBtn.onmouseover = function() { ppCloseBtn.style.background = '#fff'; };
+            ppCloseBtn.onmouseout = function() { ppCloseBtn.style.background = 'rgba(255,255,255,0.9)'; };
+            ppCloseBtn.onclick = function() {
+              clearTimeout(ppFallbackTimer);
+              document.body.removeChild(ppOverlay);
+            };
+            ppBox.appendChild(ppCloseBtn);
+
+            ppOverlay.appendChild(ppBox);
+            ppOverlay.addEventListener('click', function(ev) {
+              if (ev.target === ppOverlay) {
+                clearTimeout(ppFallbackTimer);
+                document.body.removeChild(ppOverlay);
+              }
+            });
+            document.body.appendChild(ppOverlay);
+            break;
+          case 'transparentPageOverlay':
+            var tpUrl = item.actionParams && item.actionParams.pageUrl ? item.actionParams.pageUrl : '';
+            if (!tpUrl) break;
+
+            // Full-screen frameless overlay: no white box, no backdrop dim, so the
+            // embedded page blends into the site underneath.
+            var tpOverlay = document.createElement('div');
+            tpOverlay.className = 'ifs-transparent-page-overlay';
+            tpOverlay.style.position = 'fixed';
+            tpOverlay.style.top = '0';
+            tpOverlay.style.left = '0';
+            tpOverlay.style.width = '100vw';
+            tpOverlay.style.height = '100vh';
+            tpOverlay.style.background = 'transparent';
+            tpOverlay.style.zIndex = 999999999;
+
+            var tpIframe = document.createElement('iframe');
+            tpIframe.src = tpUrl;
+            tpIframe.style.width = '100%';
+            tpIframe.style.height = '100%';
+            tpIframe.style.border = 'none';
+            tpIframe.style.display = 'block';
+            tpIframe.style.background = 'transparent';
+            tpIframe.setAttribute('allowtransparency', 'true');
+            tpIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms');
+
+            // Handshake with frame-transparent.js (injected into all frames via the
+            // manifest) so the embedded page's own body { background: #fff } is
+            // neutralized. postMessage keeps the loaded URL byte-identical to the
+            // stored one (no URL tampering — the URL may carry a token).
+            var tpPingCount = 0;
+            var tpPinger = setInterval(function() {
+              try {
+                if (tpIframe.contentWindow) {
+                  tpIframe.contentWindow.postMessage({ type: 'FTWR_TRANSPARENT_BG_REQUEST' }, '*');
+                }
+              } catch (e) { /* frame not ready yet */ }
+              if (++tpPingCount >= 50) clearInterval(tpPinger); // give up after ~15s
+            }, 300);
+            var tpOnAck = function(ev) {
+              if (ev.data && ev.data.type === 'FTWR_TRANSPARENT_BG_ACK' && ev.source === tpIframe.contentWindow) {
+                clearInterval(tpPinger);
+              }
+            };
+            window.addEventListener('message', tpOnAck);
+
+            // Embed-failure fallback: floating pill (keeps the frameless look) offering
+            // to open in a new window if the page never fires load (e.g. X-Frame-Options).
+            var tpFallbackShown = false;
+            var tpFallbackTimer = setTimeout(function() {
+              if (tpFallbackShown) return;
+              tpFallbackShown = true;
+              var tpPill = document.createElement('div');
+              tpPill.style.position = 'absolute';
+              tpPill.style.top = '16px';
+              tpPill.style.left = '50%';
+              tpPill.style.transform = 'translateX(-50%)';
+              tpPill.style.padding = '8px 16px';
+              tpPill.style.background = '#fff3cd';
+              tpPill.style.color = '#856404';
+              tpPill.style.fontSize = '13px';
+              tpPill.style.borderRadius = '20px';
+              tpPill.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+              tpPill.style.display = 'flex';
+              tpPill.style.alignItems = 'center';
+              tpPill.style.gap = '12px';
+              tpPill.style.zIndex = 999999999;
+              tpPill.textContent = 'Page may not support embedded viewing. ';
+              var tpPillBtn = document.createElement('button');
+              tpPillBtn.textContent = 'Open in new window';
+              tpPillBtn.style.background = '#0365D8';
+              tpPillBtn.style.color = '#fff';
+              tpPillBtn.style.border = 'none';
+              tpPillBtn.style.padding = '4px 12px';
+              tpPillBtn.style.borderRadius = '12px';
+              tpPillBtn.style.cursor = 'pointer';
+              tpPillBtn.style.fontSize = '13px';
+              tpPillBtn.onclick = function() {
+                window.open(tpUrl, '_blank', 'width=1200,height=800,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+                tpClose();
+              };
+              tpPill.appendChild(tpPillBtn);
+              tpOverlay.appendChild(tpPill);
+            }, 5000);
+            tpIframe.addEventListener('load', function() {
+              clearTimeout(tpFallbackTimer);
+            });
+
+            // Single cleanup path so no timers/listeners leak.
+            var tpClose = function() {
+              clearInterval(tpPinger);
+              clearTimeout(tpFallbackTimer);
+              window.removeEventListener('message', tpOnAck);
+              document.removeEventListener('keydown', tpOnKeydown);
+              if (tpOverlay.parentNode) tpOverlay.parentNode.removeChild(tpOverlay);
+            };
+            var tpOnKeydown = function(ev) {
+              if (ev.key === 'Escape') tpClose();
+            };
+            document.addEventListener('keydown', tpOnKeydown);
+
+            var tpCloseBtn = document.createElement('button');
+            tpCloseBtn.innerHTML = '&times;';
+            tpCloseBtn.style.position = 'absolute';
+            tpCloseBtn.style.top = '10px';
+            tpCloseBtn.style.right = '16px';
+            tpCloseBtn.style.fontSize = '28px';
+            tpCloseBtn.style.background = 'rgba(255,255,255,0.9)';
+            tpCloseBtn.style.border = 'none';
+            tpCloseBtn.style.cursor = 'pointer';
+            tpCloseBtn.style.color = '#333';
+            tpCloseBtn.style.zIndex = 999999999;
+            tpCloseBtn.style.width = '36px';
+            tpCloseBtn.style.height = '36px';
+            tpCloseBtn.style.borderRadius = '50%';
+            tpCloseBtn.style.display = 'flex';
+            tpCloseBtn.style.alignItems = 'center';
+            tpCloseBtn.style.justifyContent = 'center';
+            tpCloseBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+            tpCloseBtn.style.transition = 'all 0.2s ease';
+            tpCloseBtn.onmouseover = function() { tpCloseBtn.style.background = '#fff'; };
+            tpCloseBtn.onmouseout = function() { tpCloseBtn.style.background = 'rgba(255,255,255,0.9)'; };
+            tpCloseBtn.onclick = tpClose;
+
+            tpOverlay.appendChild(tpIframe);
+            tpOverlay.appendChild(tpCloseBtn);
+            document.body.appendChild(tpOverlay);
+            break;
+          case 'imageSlideshow':
+            var slideImages = (item.actionParams && item.actionParams.images && Array.isArray(item.actionParams.images)) ? item.actionParams.images : [];
+            if (slideImages.length === 0) break;
+
+            var slideOverlay = document.createElement('div');
+            slideOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:999999999;display:flex;align-items:center;justify-content:center;';
+
+            var slideFrame = document.createElement('div');
+            slideFrame.style.cssText = 'position:relative;width:100%;max-width:min(100vw, 177.78vh);max-height:min(100vh, 56.25vw);aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:#000;';
+
+            var slideImg = document.createElement('img');
+            slideImg.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;object-position:center;';
+            slideImg.src = slideImages[0];
+            slideImg.alt = 'Slide 1';
+
+            var slideIdx = 0;
+            function slideShowImg() {
+              slideImg.src = slideImages[slideIdx];
+              slideImg.alt = 'Slide ' + (slideIdx + 1);
+              if (slideCounter) slideCounter.textContent = (slideIdx + 1) + ' / ' + slideImages.length;
+            }
+
+            var slideCounter = document.createElement('div');
+            slideCounter.style.cssText = 'position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.8);font-size:14px;z-index:10;';
+            slideCounter.textContent = '1 / ' + slideImages.length;
+
+            var fullscreenBtn = document.createElement('button');
+            fullscreenBtn.innerHTML = '&#x26F6;';
+            fullscreenBtn.title = 'Fullscreen';
+            fullscreenBtn.style.cssText = 'position:absolute;top:12px;right:48px;font-size:20px;background:rgba(255,255,255,0.2);border:none;color:#fff;cursor:pointer;width:36px;height:36px;border-radius:4px;z-index:10;display:flex;align-items:center;justify-content:center;';
+            fullscreenBtn.onclick = function() {
+              if (slideFrame.requestFullscreen) {
+                slideFrame.requestFullscreen().catch(function() {});
+              }
+            };
+
+            var closeSlideBtn = document.createElement('button');
+            closeSlideBtn.innerHTML = '&times;';
+            closeSlideBtn.style.cssText = 'position:absolute;top:12px;right:12px;font-size:28px;background:rgba(255,255,255,0.2);border:none;color:#fff;cursor:pointer;width:36px;height:36px;border-radius:4px;z-index:10;display:flex;align-items:center;justify-content:center;line-height:1;';
+            closeSlideBtn.onclick = function() {
+              document.removeEventListener('keydown', slideKeyHandler);
+              if (document.fullscreenElement === slideFrame && document.exitFullscreen) document.exitFullscreen();
+              document.body.removeChild(slideOverlay);
+            };
+
+            slideFrame.appendChild(slideImg);
+            slideFrame.appendChild(slideCounter);
+            slideFrame.appendChild(fullscreenBtn);
+            slideFrame.appendChild(closeSlideBtn);
+            slideOverlay.appendChild(slideFrame);
+
+            var slideKeyHandler = function(e) {
+              if (e.key === 'Escape') {
+                if (document.fullscreenElement === slideFrame && document.exitFullscreen) {
+                  document.exitFullscreen();
+                } else {
+                  document.removeEventListener('keydown', slideKeyHandler);
+                  document.body.removeChild(slideOverlay);
+                }
+                e.preventDefault();
+                return;
+              }
+              if (e.key === 'ArrowLeft') {
+                slideIdx = slideIdx <= 0 ? 0 : slideIdx - 1;
+                slideShowImg();
+                e.preventDefault();
+              } else if (e.key === 'ArrowRight') {
+                slideIdx = slideIdx >= slideImages.length - 1 ? slideImages.length - 1 : slideIdx + 1;
+                slideShowImg();
+                e.preventDefault();
+              }
+            };
+            document.addEventListener('keydown', slideKeyHandler);
+
+            slideOverlay.addEventListener('click', function(ev) {
+              if (ev.target === slideOverlay) {
+                document.removeEventListener('keydown', slideKeyHandler);
+                if (document.fullscreenElement === slideFrame && document.exitFullscreen) document.exitFullscreen();
+                document.body.removeChild(slideOverlay);
+              }
+            });
+
+            document.body.appendChild(slideOverlay);
+            break;
         }
-      });
+    }
 
-      // Simple hover effects.
-      li.addEventListener("mouseenter", () => {
-        li.style.backgroundColor = "#f0f0f0";
-      });
-      li.addEventListener("mouseleave", () => {
-        li.style.backgroundColor = "";
-      });
+    // Build one <li> for an item. If it has visible children it becomes a cascading-on-hover
+    // container (its own action is suppressed); otherwise it dispatches via executeAction.
+    function buildMenuItem(item) {
+      const li = document.createElement("li");
+      li.textContent = item.callName;
+      if (item.tooltip && item.tooltip.trim()) {
+        li.title = item.tooltip;
+      }
+      li.style.padding = "8px 12px";
+      li.style.cursor = "pointer";
 
-      // Middle-click to open URL in new tab (only for openUrl action type)
-      li.addEventListener("auxclick", function(e) {
-        if (e.button === 1 && item.actionType === 'openUrl' && item.url) {
-          e.preventDefault();
+      const visibleKids = Array.isArray(item.children)
+        ? item.children.filter(function(c) { return !c.hidden; })
+        : [];
+      const isContainer = visibleKids.length > 0;
+
+      if (isContainer) {
+        li.classList.add("has-children");
+        attachSubmenu(li, visibleKids);
+      } else {
+        li.addEventListener("click", function(e) {
           e.stopPropagation();
-          customMenu.style.display = "none";
-          chrome.runtime.sendMessage({
-            action: "navigate",
-            url: item.url,
-            currentTab: false  // Always open in new tab
-          });
-        }
-      });
+          executeAction(item);
+        });
 
-      ul.appendChild(li);
+        // Middle-click opens URL in a new tab (openUrl only).
+        li.addEventListener("auxclick", function(e) {
+          if (e.button === 1 && item.actionType === 'openUrl' && item.url) {
+            e.preventDefault();
+            e.stopPropagation();
+            customMenu.style.display = "none";
+            chrome.runtime.sendMessage({
+              action: "navigate",
+              url: item.url,
+              currentTab: false  // Always open in new tab
+            });
+          }
+        });
+
+        // Inline hover effect (leaves only; containers use CSS :hover to open the submenu).
+        li.addEventListener("mouseenter", () => {
+          li.style.backgroundColor = "#f0f0f0";
+        });
+        li.addEventListener("mouseleave", () => {
+          li.style.backgroundColor = "";
+        });
+      }
+
+      return li;
+    }
+
+    // Append a cascading submenu UL to a parent LI; hover to open, edge-flip when overflowing,
+    // and use a small close-delay so the mouse can bridge the gap to the submenu.
+    function attachSubmenu(parentLi, children) {
+      const submenu = document.createElement("ul");
+      submenu.className = "submenu";
+      children.forEach(function(child) { submenu.appendChild(buildMenuItem(child)); });
+      parentLi.appendChild(submenu);
+
+      var hideTimer = null;
+      function cancelHide() { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } }
+      function show() {
+        cancelHide();
+        submenu.style.display = "block";
+        submenu.style.left = "";
+        submenu.style.right = "";
+        var rect = submenu.getBoundingClientRect();
+        if (rect.right > document.documentElement.clientWidth) {
+          submenu.style.left = "auto";
+          submenu.style.right = "100%";
+        }
+      }
+      function hideSoon() {
+        hideTimer = setTimeout(function() {
+          submenu.style.display = "none";
+          hideTimer = null;
+        }, 150);
+      }
+
+      parentLi.addEventListener("mouseenter", show);
+      parentLi.addEventListener("mouseleave", hideSoon);
+      submenu.addEventListener("mouseenter", cancelHide);
+      submenu.addEventListener("mouseleave", hideSoon);
+    }
+
+    items.forEach(function(item) {
+      ul.appendChild(buildMenuItem(item));
     });
 
     customMenu.appendChild(ul);
@@ -979,29 +1564,43 @@
 
   // --- Event Listeners for the Custom RMB Menu ---
 
-  // Intercept right-click events.
+  function showReloadHint(x, y) {
+    var hint = document.createElement("div");
+    hint.style.cssText = "position:fixed;z-index:2147483647;padding:10px 14px;background:#333;color:#fff;font-size:13px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.3);white-space:nowrap;pointer-events:none;";
+    hint.textContent = "Extension was reloaded. Please refresh this page to use the menu.";
+    hint.style.left = Math.min(x, document.documentElement.clientWidth - 320) + "px";
+    hint.style.top = (y - 40) + "px";
+    document.body.appendChild(hint);
+    setTimeout(function() { if (hint.parentNode) hint.parentNode.removeChild(hint); }, 4000);
+  }
+
   document.addEventListener("contextmenu", (e) => {
-    e.preventDefault(); // Prevent the default context menu
+    e.preventDefault();
 
-    // Request the active tab URL from the background script.
-    chrome.runtime.sendMessage({ action: "getActiveTabUrl" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Error retrieving active URL:", chrome.runtime.lastError);
-        return;
-      }
-      
-      const activeUrl = response.activeUrl || "";
-      // Load the items from chrome.storage.local, then filter.
-      loadItems((items) => {
-        const filteredItems = filterItemsForCurrentUrl(activeUrl, items);
-        populateCustomMenu(filteredItems);
+    if (!isExtensionValid()) {
+      showReloadHint(e.clientX, e.clientY);
+      return;
+    }
+    try {
+      chrome.runtime.sendMessage({ action: "getActiveTabUrl" }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.warn("Extension context error:", chrome.runtime.lastError.message);
+          showReloadHint(e.clientX, e.clientY);
+          return;
+        }
+        const activeUrl = (response && response.activeUrl) ? response.activeUrl : "";
+        loadItems((items) => {
+          const filteredItems = filterItemsForCurrentUrl(activeUrl, items);
+          populateCustomMenu(filteredItems);
 
-        // Position the custom menu at the mouse coordinates.
-        customMenu.style.top = e.clientY + "px";
-        customMenu.style.left = e.clientX + "px";
-        customMenu.style.display = "block";
+          customMenu.style.top = e.clientY + "px";
+          customMenu.style.left = e.clientX + "px";
+          customMenu.style.display = "block";
+        });
       });
-    });
+    } catch (ex) {
+      showReloadHint(e.clientX, e.clientY);
+    }
   });
 
   // Hide the custom menu when clicking anywhere else.

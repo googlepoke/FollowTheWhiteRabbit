@@ -4,7 +4,8 @@
   "version": "3.0",
   "description": "Manage your customizable RMB list.",
   "author": "Manie Cronje",
-  "permissions": ["tabs", "storage"],
+  "permissions": ["tabs", "storage", "unlimitedStorage"],
+  "incognito": "spanning",
 
   "icons": {
     "16":  "icons/ifs-rabbit-16.png",
@@ -17,9 +18,15 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["marked.min.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["frame-transparent.js"],
+      "run_at": "document_end",
+      "all_frames": true
     }
   ],
 
