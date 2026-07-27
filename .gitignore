@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# Build artifacts / packaged extension
+*.zip
+
+# Local tool settings
+.claude/settings.local.json
